@@ -1,0 +1,31 @@
+from django.db import models
+from django.db.models import JSONField
+
+from apps.workspaces.models import Workspace
+
+
+IMPORT_STATUS_CHOICES= (
+    ('FATAL', 'FATAL'),
+    ('COMPLETE', 'COMPLETE'),
+    ('IN_PROGRESS', 'IN_PROGRESS'),
+    ('FAILED', 'FAILED')
+)
+
+class ImportLog(models.Model):
+    """
+    Table to store import logs
+    """
+    id = models.AutoField(primary_key=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.PROTECT, help_text='Reference to Workspace model')
+    attribute_type = models.CharField(max_length=150, help_text='Attribute type')
+    status = models.CharField(max_length=255, help_text='Status', choices=IMPORT_STATUS_CHOICES, null=True)
+    error_log = JSONField(help_text='Error Log', default=list)
+    total_batches_count = models.IntegerField(help_text='Queued batches', default=0)
+    processed_batches_count = models.IntegerField(help_text='Processed batches', default=0)
+    last_successful_run_at = models.DateTimeField(help_text='Last successful run', null=True)
+    created_at = models.DateTimeField(auto_now_add=True, help_text='Created at datetime')
+    updated_at = models.DateTimeField(auto_now=True, help_text='Updated at datetime')
+
+    class Meta:
+        db_table = 'import_logs'
+        unique_together = ('workspace', 'attribute_type')
