@@ -9,16 +9,11 @@ from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
     Mapping,
     DestinationAttribute,
-    ExpenseAttribute,
-    CategoryMapping
+    ExpenseAttribute
 )
 from apps.workspaces.models import FyleCredential
-from apps.mappings.models import ImportLog
-from apps.workspaces.models import SageIntacctCredential
-from apps.sage_intacct.utils import SageIntacctConnector
+from models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions
-from apps.tasks.models import Error
-from apps.workspaces.models import Configuration
 
 
 class Base:
@@ -32,12 +27,19 @@ class Base:
             destination_field: str,
             platform_class_name: str,
             sync_after:datetime,
+            sdk_connection,
+            destination_sync_method: str,
+            is_auto_sync_enabled: bool
         ):
         self.workspace_id = workspace_id
         self.source_field = source_field
         self.destination_field = destination_field
         self.platform_class_name = platform_class_name
         self.sync_after = sync_after
+        # TODO: what will be the type of sdk_connection
+        self.sdk_connection = sdk_connection
+        self.destination_sync_method = destination_sync_method
+        self.is_auto_sync_enabled = is_auto_sync_enabled
 
 
     def get_platform_class(self, platform: PlatformConnector):
@@ -47,17 +49,6 @@ class Base:
         :return: platform class
         """
         return getattr(platform, self.platform_class_name)
-    
-    def get_auto_sync_permission(self):
-        """
-        Get the auto sync permission
-        :return: bool
-        """
-        is_auto_sync_status_allowed = False
-        if (self.destination_field == 'PROJECT' and self.source_field == 'PROJECT') or self.source_field == 'CATEGORY':
-            is_auto_sync_status_allowed = True
-
-        return is_auto_sync_status_allowed
     
     def construct_attributes_filter(self, attribute_type: str, paginated_destination_attribute_values: List[str] = []):
         """
@@ -95,56 +86,6 @@ class Base:
 
         return unique_attributes
 
-    def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
-        """
-        Get mapped attributes ids
-        :param errored_attribute_ids: list[int]
-        :return: list[int]
-        """
-        mapped_attribute_ids = []
-        if self.source_field == "CATEGORY":
-            params = {
-                'source_category_id__in': errored_attribute_ids,
-            }
-
-            if self.destination_field == 'EXPENSE_TYPE':
-                params['destination_expense_head_id__isnull'] = False
-            else:
-                params['destination_account_id__isnull'] =  False
-
-            mapped_attribute_ids: List[int] = CategoryMapping.objects.filter(
-                **params
-            ).values_list('source_category_id', flat=True)
-
-        return mapped_attribute_ids
-
-    def resolve_expense_attribute_errors(self):
-        """
-        Resolve Expense Attribute Errors
-        :return: None
-        """
-        errored_attribute_ids: List[int] = Error.objects.filter(
-            is_resolved=False,
-            workspace_id=self.workspace_id,
-            type='{}_MAPPING'.format(self.source_field)
-        ).values_list('expense_attribute_id', flat=True)
-
-        if errored_attribute_ids:
-            mapped_attribute_ids = self.__get_mapped_attributes_ids(errored_attribute_ids)
-            if mapped_attribute_ids:
-                Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)
-
-    def create_ccc_category_mappings(self):
-        """
-        Create CCC Category Mappings
-        :return: None
-        """
-        configuration = Configuration.objects.filter(workspace_id=self.workspace_id).first()
-        if configuration.reimbursable_expenses_object == 'EXPENSE_REPORT' and \
-            configuration.corporate_credit_card_expenses_object in ('BILL', 'CHARGE_CARD_TRANSACTION', 'JOURNAL_ENTRY') and\
-            self.source_field == 'CATEGORY':
-            CategoryMapping.bulk_create_ccc_category_mappings(self.workspace_id)
-
     @handle_import_exceptions
     def import_destination_attribute_to_fyle(self, import_log: ImportLog):
         """
@@ -163,10 +104,6 @@ class Base:
         self.sync_expense_attributes(platform)
 
         self.create_mappings()
-
-        self.create_ccc_category_mappings()
-
-        self.resolve_expense_attribute_errors()
 
     def create_mappings(self):
         """
@@ -199,30 +136,13 @@ class Base:
         else:
             platform_class.sync(sync_after=self.sync_after if self.sync_after else None)
 
-    def sync_destination_attributes(self, sageintacct_attribute_type: str):
+    def sync_destination_attributes(self):
         """
         Sync destination attributes
         :param sageintacct_attribute_type: Sage Intacct attribute type
         """
-        sage_intacct_credentials = SageIntacctCredential.objects.get(workspace_id=self.workspace_id)
-        sage_intacct_connection = SageIntacctConnector(credentials_object=sage_intacct_credentials, workspace_id=self.workspace_id)
-
-        sync_methods = {
-            'LOCATION': sage_intacct_connection.sync_locations,
-            'PROJECT': sage_intacct_connection.sync_projects,
-            'DEPARTMENT': sage_intacct_connection.sync_departments,
-            'VENDOR': sage_intacct_connection.sync_vendors,
-            'CLASS': sage_intacct_connection.sync_classes,
-            'TAX_DETAIL': sage_intacct_connection.sync_tax_details,
-            'ITEM': sage_intacct_connection.sync_items,
-            'CUSTOMER': sage_intacct_connection.sync_customers,
-            'COST_TYPE': sage_intacct_connection.sync_cost_types,
-            'EXPENSE_TYPE': sage_intacct_connection.sync_expense_types,
-            'ACCOUNT': sage_intacct_connection.sync_accounts,
-        }
-        
-        sync_method = sync_methods.get(sageintacct_attribute_type, sage_intacct_connection.sync_user_defined_dimensions)
-        sync_method()
+        sync = getattr(self.sdk_connection, 'sync_{}'.format(self.destination_sync_method))
+        sync()
 
     def construct_payload_and_import_to_fyle(
         self,
@@ -232,8 +152,6 @@ class Base:
         """
         Construct Payload and Import to fyle in Batches
         """
-        is_auto_sync_status_allowed = self.get_auto_sync_permission()
-
         filters = self.construct_attributes_filter(self.destination_field)
 
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
@@ -256,8 +174,7 @@ class Base:
 
         for paginated_destination_attributes, is_last_batch in destination_attributes_generator:
             fyle_payload = self.setup_fyle_payload_creation(
-                paginated_destination_attributes=paginated_destination_attributes,
-                is_auto_sync_status_allowed=is_auto_sync_status_allowed
+                paginated_destination_attributes=paginated_destination_attributes
             )
 
             self.post_to_fyle_and_sync(
@@ -284,8 +201,7 @@ class Base:
 
     def setup_fyle_payload_creation(
         self,
-        paginated_destination_attributes: List[DestinationAttribute],
-        is_auto_sync_status_allowed: bool
+        paginated_destination_attributes: List[DestinationAttribute]
     ):
         """
         Setup Fyle Payload Creation
@@ -296,7 +212,7 @@ class Base:
         paginated_destination_attribute_values = [attribute.value for attribute in paginated_destination_attributes]
         existing_expense_attributes_map = self.get_existing_fyle_attributes(paginated_destination_attribute_values)
 
-        return self.construct_fyle_payload(paginated_destination_attributes, existing_expense_attributes_map, is_auto_sync_status_allowed)
+        return self.construct_fyle_payload(paginated_destination_attributes, existing_expense_attributes_map)
 
     def get_existing_fyle_attributes(self, paginated_destination_attribute_values: List[str]):
         """
