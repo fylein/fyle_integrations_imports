@@ -7,11 +7,18 @@ def chain_import_fields_to_fyle(workspace_id, tasks_settings: dict):
     """
     chain = Chain()
 
+    print("""
+
+
+        chain_import_fields_to_fyle
+        
+    """)
+
     if tasks_settings['mapping_settings']:
         for mapping_setting in tasks_settings['mapping_settings']:
-            if mapping_setting.source_field in ['PROJECT']:
+            if mapping_setting['source_field'] in ['PROJECT']:
                 chain.append(
-                    'tasks.trigger_import_via_schedule',
+                    'fyle_integrations_imports.tasks.trigger_import_via_schedule',
                     workspace_id,
                     mapping_setting['destination_field'],
                     mapping_setting['source_field'],

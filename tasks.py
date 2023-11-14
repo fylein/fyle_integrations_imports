@@ -1,6 +1,6 @@
 from django.utils.module_loading import import_string
-from models import ImportLog
-from modules.projects import Project
+from fyle_integrations_imports.models import ImportLog
+from fyle_integrations_imports.modules.projects import Project
 from apps.workspaces.models import QBOCredential
 
 
@@ -24,6 +24,13 @@ def trigger_import_via_schedule(
     :param destination_field: Destination field
     :param source_field: Type of attribute (e.g., 'PROJECT', 'CATEGORY', 'COST_CENTER')
     """
+
+    print("""
+
+
+        trigger_import_via_schedule
+        
+    """)
     import_log = ImportLog.objects.filter(workspace_id=workspace_id, attribute_type=source_field).first()
     sync_after = import_log.last_successful_run_at if import_log else None
 

@@ -12,8 +12,8 @@ from fyle_accounting_mappings.models import (
     ExpenseAttribute
 )
 from apps.workspaces.models import FyleCredential
-from models import ImportLog
-from apps.mappings.exceptions import handle_import_exceptions
+from fyle_integrations_imports.models import ImportLog
+from apps.mappings.exceptions import new_handle_import_exceptions
 
 
 class Base:
@@ -86,7 +86,7 @@ class Base:
 
         return unique_attributes
 
-    @handle_import_exceptions
+    @new_handle_import_exceptions
     def import_destination_attribute_to_fyle(self, import_log: ImportLog):
         """
         Import destiantion_attributes field to Fyle and Auto Create Mappings
@@ -97,7 +97,7 @@ class Base:
 
         self.sync_expense_attributes(platform)
 
-        self.sync_destination_attributes(self.destination_field)
+        self.sync_destination_attributes()
 
         self.construct_payload_and_import_to_fyle(platform, import_log)
         
@@ -109,6 +109,11 @@ class Base:
         """
         Create mappings
         """
+        print("""
+
+            create_mappings
+
+        """)
         destination_attributes_without_duplicates = []
         destination_attributes = DestinationAttribute.objects.filter(
             workspace_id=self.workspace_id,
@@ -141,6 +146,12 @@ class Base:
         Sync destination attributes
         :param sageintacct_attribute_type: Sage Intacct attribute type
         """
+        print("""
+
+
+            dync_destination_attributes
+
+        """)
         sync = getattr(self.sdk_connection, 'sync_{}'.format(self.destination_sync_method))
         sync()
 
@@ -152,6 +163,11 @@ class Base:
         """
         Construct Payload and Import to fyle in Batches
         """
+        print("""
+
+            construct_payload_and_import_to_fyle
+
+            """)
         filters = self.construct_attributes_filter(self.destination_field)
 
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
@@ -191,6 +207,7 @@ class Base:
         :param filters: dict
         :return: Generator of destination_attributes
         """
+
         for offset in range(0, destination_attributes_count, 200):
             limit = offset + 200
             paginated_destination_attributes = DestinationAttribute.objects.filter(**filters).order_by('value', 'id')[offset:limit]
@@ -260,6 +277,11 @@ class Base:
         """
         Checks if the import is already in progress and if not, starts the import process
         """
+        print("""
+
+            check_import_log_and_start_import
+
+        """)
         import_log, is_created = ImportLog.objects.get_or_create(
             workspace_id=self.workspace_id,
             attribute_type=self.source_field,
