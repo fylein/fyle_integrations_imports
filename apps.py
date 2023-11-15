@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class FyleIntegrationsImportsConfig(AppConfig):
-    name = 'fyle-integrations-imports'
+    name = 'fyle_integrations_imports'
