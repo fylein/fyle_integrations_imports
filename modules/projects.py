@@ -24,11 +24,6 @@ class Project(Base):
         """
         Trigger import for Projects module
         """
-        print("""
-
-            trigger_import-projects
-\
-        """)
         self.check_import_log_and_start_import()
 
     def construct_fyle_payload(
@@ -43,8 +38,6 @@ class Project(Base):
         :param is_auto_sync_status_allowed: Is auto sync status allowed
         :return: Fyle payload
         """
-
-
         payload = []
 
         for attribute in paginated_destination_attributes:
@@ -66,9 +59,4 @@ class Project(Base):
                 project['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(project)
 
-        print("""
-
-
-            construct_fyle_payload-projects""")
-        print(payload)
         return payload

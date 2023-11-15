@@ -109,11 +109,6 @@ class Base:
         """
         Create mappings
         """
-        print("""
-
-            create_mappings
-
-        """)
         destination_attributes_without_duplicates = []
         destination_attributes = DestinationAttribute.objects.filter(
             workspace_id=self.workspace_id,
@@ -146,12 +141,6 @@ class Base:
         Sync destination attributes
         :param sageintacct_attribute_type: Sage Intacct attribute type
         """
-        print("""
-
-
-            dync_destination_attributes
-
-        """)
         sync = getattr(self.sdk_connection, 'sync_{}'.format(self.destination_sync_method))
         sync()
 
@@ -163,11 +152,6 @@ class Base:
         """
         Construct Payload and Import to fyle in Batches
         """
-        print("""
-
-            construct_payload_and_import_to_fyle
-
-            """)
         filters = self.construct_attributes_filter(self.destination_field)
 
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
@@ -277,11 +261,6 @@ class Base:
         """
         Checks if the import is already in progress and if not, starts the import process
         """
-        print("""
-
-            check_import_log_and_start_import
-
-        """)
         import_log, is_created = ImportLog.objects.get_or_create(
             workspace_id=self.workspace_id,
             attribute_type=self.source_field,
