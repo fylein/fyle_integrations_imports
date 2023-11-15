@@ -29,7 +29,6 @@ class Base:
             sync_after:datetime,
             sdk_connection,
             destination_sync_method: str,
-            is_auto_sync_enabled: bool
         ):
         self.workspace_id = workspace_id
         self.source_field = source_field
@@ -39,7 +38,6 @@ class Base:
         # TODO: what will be the type of sdk_connection
         self.sdk_connection = sdk_connection
         self.destination_sync_method = destination_sync_method
-        self.is_auto_sync_enabled = is_auto_sync_enabled
 
 
     def get_platform_class(self, platform: PlatformConnector):
