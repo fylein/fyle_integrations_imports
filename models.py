@@ -4,12 +4,13 @@ from django.db.models import JSONField
 from apps.workspaces.models import Workspace
 
 
-IMPORT_STATUS_CHOICES= (
+IMPORT_STATUS_CHOICES = (
     ('FATAL', 'FATAL'),
     ('COMPLETE', 'COMPLETE'),
     ('IN_PROGRESS', 'IN_PROGRESS'),
     ('FAILED', 'FAILED')
 )
+
 
 class ImportLog(models.Model):
     """

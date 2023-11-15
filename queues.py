@@ -1,5 +1,6 @@
 from django_q.tasks import Chain
 
+
 def chain_import_fields_to_fyle(workspace_id, tasks_settings: dict):
     """
     Chain import fields to Fyle

@@ -7,6 +7,8 @@ from apps.workspaces.models import QBOCredential
 SOURCE_FIELD_CLASS_MAP = {
     'PROJECT': Project
 }
+
+
 # TODO: When we need to assign multiple type to credentials we can use this Union[type1, type2, ...]
 def trigger_import_via_schedule(
         workspace_id: int,
