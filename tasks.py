@@ -2,6 +2,9 @@ from django.utils.module_loading import import_string
 from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
 from apps.workspaces.models import QBOCredential
+from typing import Type, TypeVar
+
+T = TypeVar('T')
 
 
 SOURCE_FIELD_CLASS_MAP = {
@@ -13,7 +16,7 @@ def trigger_import_via_schedule(
         destination_field: str,
         source_field: str,
         sdk_connection_string: str,
-        credentials: QBOCredential,
+        credentials: Type[T],
         destination_sync_method: str = None,
         is_auto_sync_enabled: bool = False,
         is_custom: bool = False

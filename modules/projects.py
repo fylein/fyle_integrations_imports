@@ -8,7 +8,7 @@ class Project(Base):
     """
     Class for Projects module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection, destination_sync_method: str = None, is_auto_sync_enabled: bool = False):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection, destination_sync_method: str, is_auto_sync_enabled: bool):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         super().__init__(
             workspace_id=workspace_id,
