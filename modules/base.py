@@ -96,7 +96,7 @@ class Base:
         :return: platform class
         """
         return getattr(platform, self.platform_class_name)
-    
+
     def construct_attributes_filter(self, attribute_type: str, paginated_destination_attribute_values: List[str] = []):
         """
         Construct the attributes filter
@@ -116,7 +116,7 @@ class Base:
             filters['value__in'] = paginated_destination_attribute_values
 
         return filters
-    
+
     def remove_duplicate_attributes(self, destination_attributes: List[DestinationAttribute]):
         """
         Remove duplicate attributes
@@ -147,7 +147,7 @@ class Base:
         self.sync_destination_attributes()
 
         self.construct_payload_and_import_to_fyle(platform, import_log)
-        
+
         self.sync_expense_attributes(platform)
 
         self.create_mappings()
@@ -271,7 +271,7 @@ class Base:
         existing_expense_attributes_values = ExpenseAttribute.objects.filter(**filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
-    
+
     def post_to_fyle_and_sync(self, fyle_payload: List[object], resource_class, is_last_batch: bool, import_log: ImportLog):
         """
         Post to Fyle and Sync

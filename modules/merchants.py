@@ -7,6 +7,7 @@ from apps.mappings.exceptions import handle_import_exceptions
 from apps.workspaces.models import FyleCredential
 from fyle_integrations_platform_connector import PlatformConnector
 
+
 class Merchant(Base):
     """
     Class for Merchant module
@@ -49,7 +50,7 @@ class Merchant(Base):
 
         return payload
 
-    # import_destination_attribute_to_fyle method is overridden 
+    # import_destination_attribute_to_fyle method is overridden
     @handle_import_exceptions
     def import_destination_attribute_to_fyle(self, import_log: ImportLog):
         """
@@ -64,5 +65,5 @@ class Merchant(Base):
         self.sync_destination_attributes(self.destination_field)
 
         self.construct_payload_and_import_to_fyle(platform, import_log)
-        
+
         self.sync_expense_attributes(platform)
