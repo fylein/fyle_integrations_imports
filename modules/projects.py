@@ -8,7 +8,8 @@ class Project(Base):
     """
     Class for Projects module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection, destination_sync_method: str = None, is_auto_sync_enabled: bool = False):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection, destination_sync_method: str, is_auto_sync_enabled: bool):
+        self.is_auto_sync_enabled = is_auto_sync_enabled
         super().__init__(
             workspace_id=workspace_id,
             source_field='PROJECT',
@@ -16,8 +17,7 @@ class Project(Base):
             platform_class_name='projects',
             sync_after=sync_after,
             sdk_connection=sdk_connection,
-            destination_sync_method=destination_sync_method,
-            is_auto_sync_enabled=is_auto_sync_enabled
+            destination_sync_method=destination_sync_method
         )
 
     def trigger_import(self):
@@ -55,7 +55,7 @@ class Project(Base):
             if attribute.value.lower() not in existing_fyle_attributes_map:
                 payload.append(project)
             # Disable the existing project in Fyle if auto-sync status is allowed and the destination_attributes is inactive
-            elif self.is_auto_sync_status_allowed and not attribute.active:
+            elif self.is_auto_sync_enabled and not attribute.active:
                 project['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(project)
 

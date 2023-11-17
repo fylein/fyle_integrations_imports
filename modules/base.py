@@ -1,5 +1,5 @@
 import math
-from typing import List
+from typing import List, Type, TypeVar
 from datetime import (
     datetime,
     timedelta,
@@ -13,8 +13,9 @@ from fyle_accounting_mappings.models import (
 )
 from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.models import ImportLog
-from apps.mappings.exceptions import new_handle_import_exceptions
+from apps.mappings.exceptions import handle_import_exceptions_v2
 
+T = TypeVar('T')
 
 class Base:
     """
@@ -27,19 +28,66 @@ class Base:
             destination_field: str,
             platform_class_name: str,
             sync_after:datetime,
-            sdk_connection,
+            sdk_connection: Type[T],
             destination_sync_method: str,
-            is_auto_sync_enabled: bool
         ):
         self.workspace_id = workspace_id
         self.source_field = source_field
         self.destination_field = destination_field
         self.platform_class_name = platform_class_name
         self.sync_after = sync_after
-        # TODO: what will be the type of sdk_connection
         self.sdk_connection = sdk_connection
         self.destination_sync_method = destination_sync_method
-        self.is_auto_sync_enabled = is_auto_sync_enabled
+
+    # def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
+    #     """
+    #     Get mapped attributes ids
+    #     :param errored_attribute_ids: list[int]
+    #     :return: list[int]
+    #     """
+    #     mapped_attribute_ids = []
+    #     if self.source_field == "CATEGORY":
+    #         params = {
+    #             'source_category_id__in': errored_attribute_ids,
+    #         }
+
+    #         if self.destination_field == 'EXPENSE_TYPE':
+    #             params['destination_expense_head_id__isnull'] = False
+    #         else:
+    #             params['destination_account_id__isnull'] =  False
+
+    #         mapped_attribute_ids: List[int] = CategoryMapping.objects.filter(
+    #             **params
+    #         ).values_list('source_category_id', flat=True)
+
+    #     return mapped_attribute_ids
+
+    # def resolve_expense_attribute_errors(self):
+    #     """
+    #     Resolve Expense Attribute Errors
+    #     :return: None
+    #     """
+    #     errored_attribute_ids: List[int] = Error.objects.filter(
+    #         is_resolved=False,
+    #         workspace_id=self.workspace_id,
+    #         type='{}_MAPPING'.format(self.source_field)
+    #     ).values_list('expense_attribute_id', flat=True)
+
+    #     if errored_attribute_ids:
+    #         mapped_attribute_ids = self.__get_mapped_attributes_ids(errored_attribute_ids)
+    #         if mapped_attribute_ids:
+    #             Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)
+
+    # def create_ccc_category_mappings(self):
+    #     """
+    #     Create CCC Category Mappings
+    #     :return: None
+    #     """
+    #     configuration = Configuration.objects.filter(workspace_id=self.workspace_id).first()
+    #     if configuration.reimbursable_expenses_object == 'EXPENSE_REPORT' and \
+    #         configuration.corporate_credit_card_expenses_object in ('BILL', 'CHARGE_CARD_TRANSACTION', 'JOURNAL_ENTRY') and\
+    #         self.source_field == 'CATEGORY':
+    #         CategoryMapping.bulk_create_ccc_category_mappings(self.workspace_id)
 
     def get_platform_class(self, platform: PlatformConnector):
         """
@@ -85,7 +133,7 @@ class Base:
 
         return unique_attributes
 
-    @new_handle_import_exceptions
+    @handle_import_exceptions_v2
     def import_destination_attribute_to_fyle(self, import_log: ImportLog):
         """
         Import destiantion_attributes field to Fyle and Auto Create Mappings
@@ -138,7 +186,6 @@ class Base:
     def sync_destination_attributes(self):
         """
         Sync destination attributes
-        :param sageintacct_attribute_type: Sage Intacct attribute type
         """
         sync = getattr(self.sdk_connection, 'sync_{}'.format(self.destination_sync_method))
         sync()
