@@ -1,7 +1,6 @@
 from django.utils.module_loading import import_string
 from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
-from apps.workspaces.models import QBOCredential
 from typing import Type
 from django.db import models
 
