@@ -4,17 +4,19 @@ from django.db.models import JSONField
 from apps.workspaces.models import Workspace
 
 
-IMPORT_STATUS_CHOICES= (
+IMPORT_STATUS_CHOICES = (
     ('FATAL', 'FATAL'),
     ('COMPLETE', 'COMPLETE'),
     ('IN_PROGRESS', 'IN_PROGRESS'),
     ('FAILED', 'FAILED')
 )
 
+
 class ImportLog(models.Model):
     """
     Table to store import logs
     """
+    # TODO: Add is_custom Flag
     id = models.AutoField(primary_key=True)
     workspace = models.ForeignKey(Workspace, on_delete=models.PROTECT, help_text='Reference to Workspace model')
     attribute_type = models.CharField(max_length=150, help_text='Attribute type')

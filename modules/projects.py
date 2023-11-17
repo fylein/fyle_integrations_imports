@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List
-from apps.mappings.imports.modules.base import Base
+from fyle_integrations_imports.modules.base import Base
 from fyle_accounting_mappings.models import DestinationAttribute
 
 
@@ -8,13 +8,16 @@ class Project(Base):
     """
     Class for Projects module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection, destination_sync_method: str, is_auto_sync_enabled: bool):
+        self.is_auto_sync_enabled = is_auto_sync_enabled
         super().__init__(
             workspace_id=workspace_id,
             source_field='PROJECT',
             destination_field=destination_field,
             platform_class_name='projects',
-            sync_after=sync_after
+            sync_after=sync_after,
+            sdk_connection=sdk_connection,
+            destination_sync_method=destination_sync_method
         )
 
     def trigger_import(self):
@@ -26,8 +29,7 @@ class Project(Base):
     def construct_fyle_payload(
         self,
         paginated_destination_attributes: List[DestinationAttribute],
-        existing_fyle_attributes_map: object,
-        is_auto_sync_status_allowed: bool
+        existing_fyle_attributes_map: object
     ):
         """
         Construct Fyle payload for Projects module
@@ -53,7 +55,7 @@ class Project(Base):
             if attribute.value.lower() not in existing_fyle_attributes_map:
                 payload.append(project)
             # Disable the existing project in Fyle if auto-sync status is allowed and the destination_attributes is inactive
-            elif is_auto_sync_status_allowed and not attribute.active:
+            elif self.is_auto_sync_enabled and not attribute.active:
                 project['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(project)
 

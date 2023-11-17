@@ -58,7 +58,7 @@ class Category(Base):
 
         return payload
 
-    # create_mappings method is overridden 
+    # create_mappings method is overridden
     def create_mappings(self):
         """
         Create mappings for Category module
