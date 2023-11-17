@@ -13,7 +13,7 @@ from fyle_accounting_mappings.models import (
 )
 from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.models import ImportLog
-from apps.mappings.exceptions import new_handle_import_exceptions
+from apps.mappings.exceptions import handle_import_exceptions_v2
 
 T = TypeVar('T')
 
@@ -36,7 +36,6 @@ class Base:
         self.destination_field = destination_field
         self.platform_class_name = platform_class_name
         self.sync_after = sync_after
-        # TODO: what will be the type of sdk_connection
         self.sdk_connection = sdk_connection
         self.destination_sync_method = destination_sync_method
 
@@ -134,7 +133,7 @@ class Base:
 
         return unique_attributes
 
-    @new_handle_import_exceptions
+    @handle_import_exceptions_v2
     def import_destination_attribute_to_fyle(self, import_log: ImportLog):
         """
         Import destiantion_attributes field to Fyle and Auto Create Mappings
