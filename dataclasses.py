@@ -20,7 +20,7 @@ class ImportConfig:
 
 
 @dataclass
-class TasksSettings:
+class TaskSetting:
     import_tax_codes: Optional[ImportConfig]
     import_vendors_as_merchants: Optional[ImportConfig]
     import_categories: Optional[ImportConfig]
