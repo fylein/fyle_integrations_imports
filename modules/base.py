@@ -17,6 +17,7 @@ from apps.mappings.exceptions import handle_import_exceptions_v2
 
 T = TypeVar('T')
 
+
 class Base:
     """
     The Base class for all the modules
