@@ -29,5 +29,6 @@ class ImportLog(models.Model):
     updated_at = models.DateTimeField(auto_now=True, help_text='Updated at datetime')
 
     class Meta:
+        app_label = 'fyle_integrations_imports'
         db_table = 'import_logs'
         unique_together = ('workspace', 'attribute_type')
