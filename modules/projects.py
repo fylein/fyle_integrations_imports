@@ -5,6 +5,7 @@ from fyle_accounting_mappings.models import DestinationAttribute
 
 T = TypeVar('T')
 
+
 class Project(Base):
     """
     Class for Projects module
