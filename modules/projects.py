@@ -1,14 +1,16 @@
 from datetime import datetime
-from typing import List
+from typing import List, Type, TypeVar
 from fyle_integrations_imports.modules.base import Base
 from fyle_accounting_mappings.models import DestinationAttribute
+
+T = TypeVar('T')
 
 
 class Project(Base):
     """
     Class for Projects module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection, destination_sync_method: str, is_auto_sync_enabled: bool):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_method: str, is_auto_sync_enabled: bool):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         super().__init__(
             workspace_id=workspace_id,
