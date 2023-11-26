@@ -2,7 +2,7 @@ from django.utils.module_loading import import_string
 from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
 from fyle_integrations_imports.modules.categories import Category
-from typing import Type
+from typing import Type, List
 from django.db import models
 
 
@@ -19,7 +19,7 @@ def trigger_import_via_schedule(
         source_field: str,
         sdk_connection_string: str,
         credentials: Type[models.Model],
-        destination_sync_method: str = None,
+        destination_sync_methods: List[str] = None,
         is_auto_sync_enabled: bool = False,
         is_3d_mapping: bool = False,
         is_custom: bool = False
@@ -38,8 +38,8 @@ def trigger_import_via_schedule(
 
     module_class = SOURCE_FIELD_CLASS_MAP[source_field]
     if source_field == 'CATEGORY':
-        item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_method, is_auto_sync_enabled, is_3d_mapping)
+        item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_methods, is_auto_sync_enabled, is_3d_mapping)
     else:
-        item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_method, is_auto_sync_enabled)
+        item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_methods, is_auto_sync_enabled)
 
     item.trigger_import()

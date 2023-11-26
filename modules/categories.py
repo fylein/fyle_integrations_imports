@@ -9,7 +9,7 @@ class Category(Base):
     """
     Class for Category module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_method: str, is_auto_sync_enabled: bool, is_3d_mapping:bool):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool, is_3d_mapping:bool):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         self.is_3d_mapping = is_3d_mapping
         super().__init__(
@@ -19,7 +19,7 @@ class Category(Base):
             platform_class_name='categories',
             sync_after=sync_after,
             sdk_connection=sdk_connection,
-            destination_sync_method=destination_sync_method
+            destination_sync_methods=destination_sync_methods
         )
 
     def trigger_import(self):

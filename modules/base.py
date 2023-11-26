@@ -30,7 +30,7 @@ class Base:
             platform_class_name: str,
             sync_after:datetime,
             sdk_connection: Type[T],
-            destination_sync_method: str,
+            destination_sync_methods: List[str],
         ):
         self.workspace_id = workspace_id
         self.source_field = source_field
@@ -38,7 +38,7 @@ class Base:
         self.platform_class_name = platform_class_name
         self.sync_after = sync_after
         self.sdk_connection = sdk_connection
-        self.destination_sync_method = destination_sync_method
+        self.destination_sync_methods = destination_sync_methods
 
     # def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
     #     """
@@ -188,8 +188,9 @@ class Base:
         """
         Sync destination attributes
         """
-        sync = getattr(self.sdk_connection, 'sync_{}'.format(self.destination_sync_method))
-        sync()
+        for destination_sync_method in self.destination_sync_methods:
+            sync = getattr(self.sdk_connection, 'sync_{}'.format(destination_sync_method))
+            sync()
 
     def construct_payload_and_import_to_fyle(
         self,

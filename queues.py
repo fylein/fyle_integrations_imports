@@ -17,7 +17,7 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
             'CATEGORY',
             task_settings['sdk_connection_string'],
             task_settings['credentials'],
-            task_settings['import_categories']['destination_sync_method'],
+            task_settings['import_categories']['destination_sync_methods'],
             task_settings['import_categories']['is_auto_sync_enabled'],
             task_settings['import_categories']['is_3d_mapping'],
             False
@@ -33,7 +33,7 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
                     mapping_setting['source_field'],
                     task_settings['sdk_connection_string'],
                     task_settings['credentials'],
-                    mapping_setting['destination_sync_method'],
+                    mapping_setting['destination_sync_methods'],
                     mapping_setting['is_auto_sync_enabled'],
                     False,
                     mapping_setting['is_custom']
