@@ -9,6 +9,19 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
     """
     chain = Chain()
 
+    if task_settings['import_categories']:
+        chain.append(
+            'fyle_integrations_imports.tasks.trigger_import_via_schedule',
+            workspace_id,
+            task_settings['import_categories']['destination_field'],
+            'CATEGORY',
+            task_settings['sdk_connection_string'],
+            task_settings['credentials'],
+            task_settings['import_categories']['destination_sync_method'],
+            task_settings['import_categories']['is_auto_sync_enabled'],
+            False
+        )
+
     if task_settings['mapping_settings']:
         for mapping_setting in task_settings['mapping_settings']:
             if mapping_setting['source_field'] in ['PROJECT']:

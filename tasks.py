@@ -1,12 +1,14 @@
 from django.utils.module_loading import import_string
 from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
+from fyle_integrations_imports.modules.categories import Category
 from typing import Type
 from django.db import models
 
 
 SOURCE_FIELD_CLASS_MAP = {
-    'PROJECT': Project
+    'PROJECT': Project,
+    'CATEGORY': Category
 }
 
 
