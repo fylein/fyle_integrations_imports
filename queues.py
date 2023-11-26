@@ -20,6 +20,7 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
             task_settings['import_categories']['destination_sync_methods'],
             task_settings['import_categories']['is_auto_sync_enabled'],
             task_settings['import_categories']['is_3d_mapping'],
+            task_settings['import_categories']['charts_of_accounts'],
             False
         )
 
@@ -36,6 +37,7 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
                     mapping_setting['destination_sync_methods'],
                     mapping_setting['is_auto_sync_enabled'],
                     False,
+                    None,
                     mapping_setting['is_custom']
                 )
 

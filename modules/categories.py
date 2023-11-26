@@ -9,9 +9,10 @@ class Category(Base):
     """
     Class for Category module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool, is_3d_mapping:bool):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool, is_3d_mapping:bool, charts_of_accounts: List[str]):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         self.is_3d_mapping = is_3d_mapping
+        self.charts_of_accounts = charts_of_accounts
         super().__init__(
             workspace_id=workspace_id,
             source_field='CATEGORY',
