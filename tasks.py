@@ -21,6 +21,7 @@ def trigger_import_via_schedule(
         credentials: Type[models.Model],
         destination_sync_method: str = None,
         is_auto_sync_enabled: bool = False,
+        is_3d_mapping: bool = False,
         is_custom: bool = False
     ):
     """
@@ -36,5 +37,9 @@ def trigger_import_via_schedule(
     sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
 
     module_class = SOURCE_FIELD_CLASS_MAP[source_field]
-    item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_method, is_auto_sync_enabled)
+    if source_field == 'CATEGORY':
+        item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_method, is_auto_sync_enabled, is_3d_mapping)
+    else:
+        item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_method, is_auto_sync_enabled)
+
     item.trigger_import()

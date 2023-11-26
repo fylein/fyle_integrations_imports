@@ -1,23 +1,25 @@
 from datetime import datetime
-from typing import List
-from apps.mappings.imports.modules.base import Base
-from fyle_accounting_mappings.models import (
-    DestinationAttribute,
-    CategoryMapping
-)
+from typing import List, Type, TypeVar
+from fyle_integrations_imports.modules.base import Base
+from fyle_accounting_mappings.models import DestinationAttribute
 
+T = TypeVar('T')
 
 class Category(Base):
     """
     Class for Category module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_method: str, is_auto_sync_enabled: bool, is_3d_mapping:bool):
+        self.is_auto_sync_enabled = is_auto_sync_enabled
+        self.is_3d_mapping = is_3d_mapping
         super().__init__(
             workspace_id=workspace_id,
             source_field='CATEGORY',
             destination_field=destination_field,
             platform_class_name='categories',
-            sync_after=sync_after
+            sync_after=sync_after,
+            sdk_connection=sdk_connection,
+            destination_sync_method=destination_sync_method
         )
 
     def trigger_import(self):
