@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Type, TypeVar
 from fyle_integrations_imports.modules.base import Base
-from fyle_accounting_mappings.models import DestinationAttribute
+from fyle_accounting_mappings.models import DestinationAttribute, Mapping
 
 T = TypeVar('T')
 
@@ -20,7 +20,7 @@ class Category(Base):
             platform_class_name='categories',
             sync_after=sync_after,
             sdk_connection=sdk_connection,
-            destination_sync_methods=destination_sync_methods
+            destination_sync_methods=destination_sync_methods # ['accounts']
         )
 
     def trigger_import(self):
@@ -29,11 +29,48 @@ class Category(Base):
         """
         self.check_import_log_and_start_import()
 
+    def construct_attributes_filter(self, attribute_type: str, paginated_destination_attribute_values: List[str] = []):
+        """
+        Construct the attributes filter
+        :param attribute_type: attribute type
+        :param paginated_destination_attribute_values: paginated destination attribute values
+        :return: dict
+        """
+
+        print("""
+
+            construct   attributes   filter
+
+        """)
+        filters = {
+            'attribute_type': attribute_type,
+            'workspace_id': self.workspace_id
+        }
+
+        if self.sync_after and self.platform_class_name != 'expense_custom_fields':
+            filters['updated_at__gte'] = self.sync_after
+
+        if paginated_destination_attribute_values:
+            filters['value__in'] = paginated_destination_attribute_values
+
+        if self.charts_of_accounts and 'accounts' in self.destination_sync_methods :
+            filters['detail__account_type__in'] = self.charts_of_accounts
+
+        if 'accounts' in self.destination_sync_methods:
+            filters['display_name'] = 'Account'
+
+        if 'items' in self.destination_sync_methods:
+            filters['display_name'] = 'Item'
+
+
+        print(filters)
+
+        return filters
+
     def construct_fyle_payload(
         self,
         paginated_destination_attributes: List[DestinationAttribute],
-        existing_fyle_attributes_map: object,
-        is_auto_sync_status_allowed: bool
+        existing_fyle_attributes_map: object
     ):
         """
         Construct Fyle payload for Category module
@@ -43,6 +80,15 @@ class Category(Base):
         :return: Fyle payload
         """
         payload = []
+
+        print("""
+
+            construct   fyle   payload
+        """)
+
+        print(paginated_destination_attributes)
+
+        print(existing_fyle_attributes_map)
 
         for attribute in paginated_destination_attributes:
             category = {
@@ -55,9 +101,11 @@ class Category(Base):
             if attribute.value.lower() not in existing_fyle_attributes_map:
                 payload.append(category)
             # Disable the existing category in Fyle if auto-sync status is allowed and the destination_attributes is inactive
-            elif is_auto_sync_status_allowed and not attribute.active:
+            elif  self.is_auto_sync_enabled and not attribute.active:
                 category['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(category)
+
+        print(payload)
 
         return payload
 
@@ -66,23 +114,31 @@ class Category(Base):
         """
         Create mappings for Category module
         """
+        destination_attributes_without_duplicates = []
         filters = {
             'workspace_id': self.workspace_id,
-            'attribute_type': self.destination_field
+            'attribute_type': self.destination_field,
+            'mapping__isnull': True,
         }
-        if self.destination_field == 'EXPENSE_TYPE':
-            filters['destination_expense_head__isnull'] = True
-        elif self.destination_field == 'ACCOUNT':
-            filters['destination_account__isnull'] = True
 
-        # get all the destination attributes that have category mappings as null
-        destination_attributes: List[DestinationAttribute] = DestinationAttribute.objects.filter(**filters)
+        if self.charts_of_accounts and 'accounts' in self.destination_sync_methods :
+            filters['detail__account_type__in'] = self.charts_of_accounts
 
-        destination_attributes_without_duplicates = []
+        if 'accounts' in self.destination_sync_methods:
+            filters['display_name'] = 'Account'
+
+        if 'items' in self.destination_sync_methods:
+            filters['display_name'] = 'Item'
+
+        destination_attributes = DestinationAttribute.objects.filter(
+            **filters
+        ).order_by('value', 'id')
         destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
 
-        CategoryMapping.bulk_create_mappings(
-            destination_attributes_without_duplicates,
-            self.destination_field,
-            self.workspace_id
-        )
+        if destination_attributes_without_duplicates:
+            Mapping.bulk_create_mappings(
+                destination_attributes_without_duplicates,
+                self.source_field,
+                self.destination_field,
+                self.workspace_id
+            )

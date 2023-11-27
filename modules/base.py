@@ -117,6 +117,13 @@ class Base:
             filters['value__in'] = paginated_destination_attribute_values
 
         return filters
+    
+        # filters = {
+        #     'attribute_type': 'ACCOUNT',
+        #     'workspace_id': 3,
+        #     'display_name':' Account',
+        #     'detail__account_type__in' : self.charts_of_accounts
+        # }
 
     def remove_duplicate_attributes(self, destination_attributes: List[DestinationAttribute]):
         """
