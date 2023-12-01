@@ -117,13 +117,7 @@ class Base:
             filters['value__in'] = paginated_destination_attribute_values
 
         return filters
-    
-        # filters = {
-        #     'attribute_type': 'ACCOUNT',
-        #     'workspace_id': 3,
-        #     'display_name':' Account',
-        #     'detail__account_type__in' : self.charts_of_accounts
-        # }
+
 
     def remove_duplicate_attributes(self, destination_attributes: List[DestinationAttribute]):
         """
@@ -226,9 +220,7 @@ class Base:
 
         destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, filters)
         platform_class = self.get_platform_class(platform)
-        count= 0
         for paginated_destination_attributes, is_last_batch in destination_attributes_generator:
-            count = count + 1
             fyle_payload = self.setup_fyle_payload_creation(
                 paginated_destination_attributes=paginated_destination_attributes
             )

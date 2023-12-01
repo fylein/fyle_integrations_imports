@@ -11,7 +11,7 @@ T = TypeVar('T')
 
 class Category(Base):
     """
-    Class for Category modulecde234
+    Class for Category module
     """
     def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool, is_3d_mapping:bool, charts_of_accounts: List[str]):
         self.is_auto_sync_enabled = is_auto_sync_enabled
@@ -24,7 +24,7 @@ class Category(Base):
             platform_class_name='categories',
             sync_after=sync_after,
             sdk_connection=sdk_connection,
-            destination_sync_methods=destination_sync_methods # ['accounts']
+            destination_sync_methods=destination_sync_methods
         )
 
     def trigger_import(self):
@@ -113,4 +113,3 @@ class Category(Base):
                 self.destination_field,
                 self.workspace_id
             )
-    
