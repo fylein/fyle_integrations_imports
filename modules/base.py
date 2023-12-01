@@ -118,7 +118,6 @@ class Base:
 
         return filters
 
-
     def remove_duplicate_attributes(self, destination_attributes: List[DestinationAttribute]):
         """
         Remove duplicate attributes

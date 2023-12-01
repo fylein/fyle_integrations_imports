@@ -1,13 +1,11 @@
-import math
 from datetime import datetime
 from django.db.models import Q
 from typing import List, Type, TypeVar
 from fyle_integrations_imports.modules.base import Base
-from fyle_integrations_imports.models import ImportLog
-from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import DestinationAttribute, Mapping
 
 T = TypeVar('T')
+
 
 class Category(Base):
     """
@@ -44,7 +42,7 @@ class Category(Base):
 
         if self.sync_after and self.platform_class_name != 'expense_custom_fields':
             filters &= Q(updated_at__gte=self.sync_after)
-        
+
         if paginated_destination_attribute_values:
             filters &= Q(value__in=paginated_destination_attribute_values)
 
@@ -54,13 +52,12 @@ class Category(Base):
 
             if 'items' in self.destination_sync_methods:
                 item_filter = filters & Q(display_name='Item')
-                filters  = account_filters | item_filter if 'accounts' in self.destination_sync_methods else item_filter
+                filters = account_filters | item_filter if 'accounts' in self.destination_sync_methods else item_filter
 
             if 'items' not in self.destination_sync_methods:
                 filters = account_filters
 
         return filters
-
 
     def construct_fyle_payload(
         self,
@@ -87,7 +84,7 @@ class Category(Base):
             if attribute.value.lower() not in existing_fyle_attributes_map:
                 payload.append(category)
             # Disable the existing category in Fyle if auto-sync status is allowed and the destination_attributes is inactive
-            elif  self.is_auto_sync_enabled and not attribute.active:
+            elif self.is_auto_sync_enabled and not attribute.active:
                 category['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(category)
 
