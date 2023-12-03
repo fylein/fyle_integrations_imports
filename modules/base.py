@@ -200,9 +200,17 @@ class Base:
         """
         Construct Payload and Import to fyle in Batches
         """
+        print("""
+
+            construct_payload_and_import_to_fyle
+
+        """)
         filters = self.construct_attributes_filter(self.destination_field)
 
         destination_attributes_count = DestinationAttribute.objects.filter(filters).count()
+
+        print("destination_attributes_count")
+        print(destination_attributes_count)
 
         # If there are no destination attributes, mark the import as complete
         if destination_attributes_count == 0:
@@ -268,8 +276,13 @@ class Base:
         :param paginated_destination_attribute_values: List of DestinationAttribute values
         :return: Map of attribute value to attribute source_id
         """
+        print("""
+            get_existing_fyle_attributes: get_existing_fyle_attributes
+
+        """)
         filters = self.construct_attributes_filter(self.source_field, paginated_destination_attribute_values)
         existing_expense_attributes_values = ExpenseAttribute.objects.filter(filters).values('value', 'source_id')
+        print(existing_expense_attributes_values)
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
 

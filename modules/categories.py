@@ -38,6 +38,12 @@ class Category(Base):
         :param paginated_destination_attribute_values: paginated destination attribute values
         :return: dict
         """
+        print("""
+
+                construct_attributes_filter: construct_attributes_filter
+
+
+            """)
         filters = Q(attribute_type=attribute_type, workspace_id=self.workspace_id)
 
         if self.sync_after and self.platform_class_name != 'expense_custom_fields':
@@ -57,6 +63,8 @@ class Category(Base):
             if 'items' not in self.destination_sync_methods:
                 filters = account_filters
 
+        print(filters)
+
         return filters
 
     def construct_fyle_payload(
@@ -73,6 +81,17 @@ class Category(Base):
         """
         payload = []
 
+        print("""
+
+            construct_fyle_payload: construct_fyle_payload
+
+        """)
+
+        print("paginated_destination_attributes: ")
+        print(paginated_destination_attributes)
+        print("existing_fyle_attributes_map: ")
+        print(existing_fyle_attributes_map)
+
         for attribute in paginated_destination_attributes:
             category = {
                 'name': attribute.value,
@@ -88,6 +107,8 @@ class Category(Base):
                 category['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(category)
 
+        print("payload")
+        print(payload)
         return payload
 
     # create_mappings method is overridden
