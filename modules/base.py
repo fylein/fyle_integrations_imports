@@ -202,7 +202,7 @@ class Base:
         """
         filters = self.construct_attributes_filter(self.destination_field)
 
-        destination_attributes_count = DestinationAttribute.objects.filter(filters).count()
+        destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
         # If there are no destination attributes, mark the import as complete
         if destination_attributes_count == 0:
@@ -241,7 +241,7 @@ class Base:
 
         for offset in range(0, destination_attributes_count, 200):
             limit = offset + 200
-            paginated_destination_attributes = DestinationAttribute.objects.filter(filters).order_by('value', 'id')[offset:limit]
+            paginated_destination_attributes = DestinationAttribute.objects.filter(**filters).order_by('value', 'id')[offset:limit]
             paginated_destination_attributes_without_duplicates = self.remove_duplicate_attributes(paginated_destination_attributes)
             is_last_batch = True if limit >= destination_attributes_count else False
 
@@ -269,7 +269,7 @@ class Base:
         :return: Map of attribute value to attribute source_id
         """
         filters = self.construct_attributes_filter(self.source_field, paginated_destination_attribute_values)
-        existing_expense_attributes_values = ExpenseAttribute.objects.filter(filters).values('value', 'source_id')
+        existing_expense_attributes_values = ExpenseAttribute.objects.filter(**filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
 
