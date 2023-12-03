@@ -219,6 +219,7 @@ class Base:
 
         destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, filters)
         platform_class = self.get_platform_class(platform)
+
         for paginated_destination_attributes, is_last_batch in destination_attributes_generator:
             fyle_payload = self.setup_fyle_payload_creation(
                 paginated_destination_attributes=paginated_destination_attributes
