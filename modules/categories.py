@@ -6,7 +6,8 @@ from fyle_integrations_imports.modules.base import Base
 from fyle_integrations_imports.models import ImportLog
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
-    ExpenseAttribute
+    ExpenseAttribute,
+    Mapping
 )
 from fyle_integrations_platform_connector import PlatformConnector
 
@@ -44,6 +45,12 @@ class Category(Base):
         :param paginated_destination_attribute_values: paginated destination attribute values
         :return: dict
         """
+
+        print("""
+
+            construct_attributes_filter
+
+        """)
         filters = Q(attribute_type=attribute_type, workspace_id=self.workspace_id)
 
         if self.sync_after and self.platform_class_name != 'expense_custom_fields':
@@ -63,6 +70,8 @@ class Category(Base):
             if 'items' not in self.destination_sync_methods:
                 filters = account_filters
 
+        print(filters)
+
         return filters
 
     def construct_payload_and_import_to_fyle(
@@ -73,9 +82,17 @@ class Category(Base):
         """
         Construct Payload and Import to fyle in Batches
         """
+        print("""
+
+            construct_payload_and_import_to_fyle
+
+        """)
         filters = self.construct_attributes_filter(self.destination_field)
 
         destination_attributes_count = DestinationAttribute.objects.filter(filters).count()
+
+        print("destination_attributes_count")
+        print(destination_attributes_count)
 
         # If there are no destination attributes, mark the import as complete
         if destination_attributes_count == 0:
@@ -92,6 +109,7 @@ class Category(Base):
 
         destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, filters)
         platform_class = self.get_platform_class(platform)
+        posted_destination_attributes = []
         for paginated_destination_attributes, is_last_batch in destination_attributes_generator:
             fyle_payload = self.setup_fyle_payload_creation(
                 paginated_destination_attributes=paginated_destination_attributes
@@ -103,6 +121,10 @@ class Category(Base):
                 is_last_batch=is_last_batch,
                 import_log=import_log
             )
+
+            posted_destination_attributes.extend(paginated_destination_attributes)
+        
+        return posted_destination_attributes
 
     def get_destination_attributes_generator(self, destination_attributes_count: int, filters: dict):
         """
@@ -145,6 +167,16 @@ class Category(Base):
         """
         payload = []
 
+        print("""
+
+            construct_fyle_payload
+
+        """)
+        print("paginated_destination_attributes")
+        print(paginated_destination_attributes)
+        print("existing_fyle_attributes_map")
+        print(existing_fyle_attributes_map)
+
         for attribute in paginated_destination_attributes:
             category = {
                 'name': attribute.value,
@@ -159,5 +191,8 @@ class Category(Base):
             elif self.is_auto_sync_enabled and not attribute.active:
                 category['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(category)
+
+        print("payload")
+        print(payload)
 
         return payload

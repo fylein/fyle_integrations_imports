@@ -147,23 +147,27 @@ class Base:
 
         self.sync_destination_attributes()
 
-        self.construct_payload_and_import_to_fyle(platform, import_log)
+        posted_destination_attributes = self.construct_payload_and_import_to_fyle(platform, import_log)
 
         self.sync_expense_attributes(platform)
 
-        self.create_mappings()
+        if posted_destination_attributes:
+            self.create_mappings(posted_destination_attributes)
 
-    def create_mappings(self):
+    def create_mappings(self, posted_destination_attributes: List[DestinationAttribute]):
         """
         Create mappings
         """
-        destination_attributes_without_duplicates = []
-        destination_attributes = DestinationAttribute.objects.filter(
-            workspace_id=self.workspace_id,
-            attribute_type=self.destination_field,
-            mapping__isnull=True
-        ).order_by('value', 'id')
-        destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
+        print("""
+
+            CREATE MAPPINGS : base
+
+        """)
+        print(posted_destination_attributes)
+        destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
+
+        print("coutn for mappings")
+        print(len(destination_attributes_without_duplicates))
 
         if destination_attributes_without_duplicates:
             Mapping.bulk_create_mappings(
@@ -219,7 +223,7 @@ class Base:
 
         destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, filters)
         platform_class = self.get_platform_class(platform)
-
+        posted_destination_attributes = []
         for paginated_destination_attributes, is_last_batch in destination_attributes_generator:
             fyle_payload = self.setup_fyle_payload_creation(
                 paginated_destination_attributes=paginated_destination_attributes
@@ -231,6 +235,10 @@ class Base:
                 is_last_batch=is_last_batch,
                 import_log=import_log
             )
+
+            posted_destination_attributes.extend(paginated_destination_attributes)
+        
+        return posted_destination_attributes
 
     def get_destination_attributes_generator(self, destination_attributes_count: int, filters: dict):
         """
