@@ -98,7 +98,7 @@ class Base:
         """
         return getattr(platform, self.platform_class_name)
 
-    def construct_attributes_filter(self, attribute_type: str, paginated_destination_attribute_values: List[str] = []):
+    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = []):
         """
         Construct the attributes filter
         :param attribute_type: attribute type
@@ -110,7 +110,7 @@ class Base:
             'workspace_id': self.workspace_id
         }
 
-        if self.sync_after and self.platform_class_name != 'expense_custom_fields':
+        if self.sync_after and self.platform_class_name != 'expense_custom_fields' and is_destination_type:
             filters['updated_at__gte'] = self.sync_after
 
         if paginated_destination_attribute_values:
@@ -147,23 +147,18 @@ class Base:
 
         self.sync_destination_attributes()
 
-        self.construct_payload_and_import_to_fyle(platform, import_log)
+        posted_destination_attributes = self.construct_payload_and_import_to_fyle(platform, import_log)
 
         self.sync_expense_attributes(platform)
 
-        self.create_mappings()
+        if posted_destination_attributes:
+            self.create_mappings(posted_destination_attributes)
 
-    def create_mappings(self):
+    def create_mappings(self, posted_destination_attributes: List[DestinationAttribute]):
         """
         Create mappings
         """
-        destination_attributes_without_duplicates = []
-        destination_attributes = DestinationAttribute.objects.filter(
-            workspace_id=self.workspace_id,
-            attribute_type=self.destination_field,
-            mapping__isnull=True
-        ).order_by('value', 'id')
-        destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
+        destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
 
         if destination_attributes_without_duplicates:
             Mapping.bulk_create_mappings(
@@ -200,14 +195,9 @@ class Base:
         """
         Construct Payload and Import to fyle in Batches
         """
-        print("""
+        filters = self.construct_attributes_filter(self.destination_field, True)
 
-            construct_payload_and_import_to_fyle
-
-        """)
-        filters = self.construct_attributes_filter(self.destination_field)
-
-        destination_attributes_count = DestinationAttribute.objects.filter(filters).count()
+        destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
         print("destination_attributes_count")
         print(destination_attributes_count)
@@ -227,6 +217,7 @@ class Base:
 
         destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, filters)
         platform_class = self.get_platform_class(platform)
+        posted_destination_attributes = []
         for paginated_destination_attributes, is_last_batch in destination_attributes_generator:
             fyle_payload = self.setup_fyle_payload_creation(
                 paginated_destination_attributes=paginated_destination_attributes
@@ -239,6 +230,10 @@ class Base:
                 import_log=import_log
             )
 
+            posted_destination_attributes.extend(paginated_destination_attributes)
+        
+        return posted_destination_attributes
+
     def get_destination_attributes_generator(self, destination_attributes_count: int, filters: dict):
         """
         Get destination attributes generator
@@ -249,7 +244,7 @@ class Base:
 
         for offset in range(0, destination_attributes_count, 200):
             limit = offset + 200
-            paginated_destination_attributes = DestinationAttribute.objects.filter(filters).order_by('value', 'id')[offset:limit]
+            paginated_destination_attributes = DestinationAttribute.objects.filter(**filters).order_by('value', 'id')[offset:limit]
             paginated_destination_attributes_without_duplicates = self.remove_duplicate_attributes(paginated_destination_attributes)
             is_last_batch = True if limit >= destination_attributes_count else False
 
@@ -276,13 +271,8 @@ class Base:
         :param paginated_destination_attribute_values: List of DestinationAttribute values
         :return: Map of attribute value to attribute source_id
         """
-        print("""
-            get_existing_fyle_attributes: get_existing_fyle_attributes
-
-        """)
-        filters = self.construct_attributes_filter(self.source_field, paginated_destination_attribute_values)
-        existing_expense_attributes_values = ExpenseAttribute.objects.filter(filters).values('value', 'source_id')
-        print(existing_expense_attributes_values)
+        filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
+        existing_expense_attributes_values = ExpenseAttribute.objects.filter(**filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
 

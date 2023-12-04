@@ -1,8 +1,15 @@
+import math
 from datetime import datetime
 from django.db.models import Q
 from typing import List, Type, TypeVar
 from fyle_integrations_imports.modules.base import Base
-from fyle_accounting_mappings.models import DestinationAttribute, Mapping
+from fyle_integrations_imports.models import ImportLog
+from fyle_accounting_mappings.models import (
+    DestinationAttribute,
+    ExpenseAttribute,
+    Mapping
+)
+from fyle_integrations_platform_connector import PlatformConnector
 
 T = TypeVar('T')
 
@@ -31,7 +38,7 @@ class Category(Base):
         """
         self.check_import_log_and_start_import()
 
-    def construct_attributes_filter(self, attribute_type: str, paginated_destination_attribute_values: List[str] = []):
+    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = []):
         """
         Construct the attributes filter
         :param attribute_type: attribute type
@@ -46,7 +53,7 @@ class Category(Base):
             """)
         filters = Q(attribute_type=attribute_type, workspace_id=self.workspace_id)
 
-        if self.sync_after and self.platform_class_name != 'expense_custom_fields':
+        if self.sync_after and self.platform_class_name != 'expense_custom_fields' and is_destination_type:
             filters &= Q(updated_at__gte=self.sync_after)
 
         if paginated_destination_attribute_values:
@@ -66,6 +73,77 @@ class Category(Base):
         print(filters)
 
         return filters
+
+    def construct_payload_and_import_to_fyle(
+        self,
+        platform: PlatformConnector,
+        import_log: ImportLog
+    ):
+        """
+        Construct Payload and Import to fyle in Batches
+        """
+        filters = self.construct_attributes_filter(self.destination_field, True)
+
+        destination_attributes_count = DestinationAttribute.objects.filter(filters).count()
+
+        # If there are no destination attributes, mark the import as complete
+        if destination_attributes_count == 0:
+            import_log.status = 'COMPLETE'
+            import_log.last_successful_run_at = datetime.now()
+            import_log.error_log = []
+            import_log.total_batches_count = 0
+            import_log.processed_batches_count = 0
+            import_log.save()
+            return
+        else:
+            import_log.total_batches_count = math.ceil(destination_attributes_count/200)
+            import_log.save()
+
+        destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, filters)
+        platform_class = self.get_platform_class(platform)
+        posted_destination_attributes = []
+        for paginated_destination_attributes, is_last_batch in destination_attributes_generator:
+            fyle_payload = self.setup_fyle_payload_creation(
+                paginated_destination_attributes=paginated_destination_attributes
+            )
+
+            self.post_to_fyle_and_sync(
+                fyle_payload=fyle_payload,
+                resource_class=platform_class,
+                is_last_batch=is_last_batch,
+                import_log=import_log
+            )
+
+            posted_destination_attributes.extend(paginated_destination_attributes)
+        
+        return posted_destination_attributes
+
+    def get_destination_attributes_generator(self, destination_attributes_count: int, filters: dict):
+        """
+        Get destination attributes generator
+        :param destination_attributes_count: Destination attributes count
+        :param filters: dict
+        :return: Generator of destination_attributes
+        """
+
+        for offset in range(0, destination_attributes_count, 200):
+            limit = offset + 200
+            paginated_destination_attributes = DestinationAttribute.objects.filter(filters).order_by('value', 'id')[offset:limit]
+            paginated_destination_attributes_without_duplicates = self.remove_duplicate_attributes(paginated_destination_attributes)
+            is_last_batch = True if limit >= destination_attributes_count else False
+
+            yield paginated_destination_attributes_without_duplicates, is_last_batch
+
+    def get_existing_fyle_attributes(self, paginated_destination_attribute_values: List[str]):
+        """
+        Get Existing Fyle Attributes
+        :param paginated_destination_attribute_values: List of DestinationAttribute values
+        :return: Map of attribute value to attribute source_id
+        """
+        filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
+        existing_expense_attributes_values = ExpenseAttribute.objects.filter(filters).values('value', 'source_id')
+        # This is a map of attribute name to attribute source_id
+        return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
 
     def construct_fyle_payload(
         self,
@@ -110,24 +188,3 @@ class Category(Base):
         print("payload")
         print(payload)
         return payload
-
-    # create_mappings method is overridden
-    def create_mappings(self):
-        """
-        Create mappings for Category module
-        """
-        destination_attributes_without_duplicates = []
-        filters = self.construct_attributes_filter(self.destination_field)
-
-        destination_attributes = DestinationAttribute.objects.filter(
-            filters, mapping__isnull=True
-        ).order_by('value', 'id')
-        destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
-
-        if destination_attributes_without_duplicates:
-            Mapping.bulk_create_mappings(
-                destination_attributes_without_duplicates,
-                self.source_field,
-                self.destination_field,
-                self.workspace_id
-            )

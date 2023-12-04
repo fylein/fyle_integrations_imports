@@ -39,10 +39,21 @@ def trigger_import_via_schedule(
     sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
 
     module_class = SOURCE_FIELD_CLASS_MAP[source_field]
+
+    args = {
+        'workspace_id': workspace_id,
+        'destination_field': destination_field,
+        'sync_after': sync_after,
+        'sdk_connection': sdk_connection,
+        'destination_sync_methods': destination_sync_methods,
+        'is_auto_sync_enabled': is_auto_sync_enabled
+    }
+
     if source_field == 'CATEGORY':
-        item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_methods, is_auto_sync_enabled, is_3d_mapping, charts_of_accounts)
-    else:
-        item = module_class(workspace_id, destination_field, sync_after, sdk_connection, destination_sync_methods, is_auto_sync_enabled)
+        args['is_3d_mapping'] = is_3d_mapping
+        args['charts_of_accounts'] = charts_of_accounts
+
+    item = module_class(**args)
 
     item.trigger_import()
 
