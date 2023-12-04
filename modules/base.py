@@ -98,7 +98,7 @@ class Base:
         """
         return getattr(platform, self.platform_class_name)
 
-    def construct_attributes_filter(self, attribute_type: str, paginated_destination_attribute_values: List[str] = []):
+    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = []):
         """
         Construct the attributes filter
         :param attribute_type: attribute type
@@ -110,7 +110,7 @@ class Base:
             'workspace_id': self.workspace_id
         }
 
-        if self.sync_after and self.platform_class_name != 'expense_custom_fields':
+        if self.sync_after and self.platform_class_name != 'expense_custom_fields' and is_destination_type:
             filters['updated_at__gte'] = self.sync_after
 
         if paginated_destination_attribute_values:
@@ -158,16 +158,7 @@ class Base:
         """
         Create mappings
         """
-        print("""
-
-            CREATE MAPPINGS : base
-
-        """)
-        print(posted_destination_attributes)
         destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
-
-        print("coutn for mappings")
-        print(len(destination_attributes_without_duplicates))
 
         if destination_attributes_without_duplicates:
             Mapping.bulk_create_mappings(
@@ -204,7 +195,7 @@ class Base:
         """
         Construct Payload and Import to fyle in Batches
         """
-        filters = self.construct_attributes_filter(self.destination_field)
+        filters = self.construct_attributes_filter(self.destination_field, True)
 
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
@@ -277,7 +268,7 @@ class Base:
         :param paginated_destination_attribute_values: List of DestinationAttribute values
         :return: Map of attribute value to attribute source_id
         """
-        filters = self.construct_attributes_filter(self.source_field, paginated_destination_attribute_values)
+        filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
         existing_expense_attributes_values = ExpenseAttribute.objects.filter(**filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}

@@ -38,22 +38,16 @@ class Category(Base):
         """
         self.check_import_log_and_start_import()
 
-    def construct_attributes_filter(self, attribute_type: str, paginated_destination_attribute_values: List[str] = []):
+    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = []):
         """
         Construct the attributes filter
         :param attribute_type: attribute type
         :param paginated_destination_attribute_values: paginated destination attribute values
         :return: dict
         """
-
-        print("""
-
-            construct_attributes_filter
-
-        """)
         filters = Q(attribute_type=attribute_type, workspace_id=self.workspace_id)
 
-        if self.sync_after and self.platform_class_name != 'expense_custom_fields':
+        if self.sync_after and self.platform_class_name != 'expense_custom_fields' and is_destination_type:
             filters &= Q(updated_at__gte=self.sync_after)
 
         if paginated_destination_attribute_values:
@@ -70,8 +64,6 @@ class Category(Base):
             if 'items' not in self.destination_sync_methods:
                 filters = account_filters
 
-        print(filters)
-
         return filters
 
     def construct_payload_and_import_to_fyle(
@@ -82,17 +74,9 @@ class Category(Base):
         """
         Construct Payload and Import to fyle in Batches
         """
-        print("""
-
-            construct_payload_and_import_to_fyle
-
-        """)
-        filters = self.construct_attributes_filter(self.destination_field)
+        filters = self.construct_attributes_filter(self.destination_field, True)
 
         destination_attributes_count = DestinationAttribute.objects.filter(filters).count()
-
-        print("destination_attributes_count")
-        print(destination_attributes_count)
 
         # If there are no destination attributes, mark the import as complete
         if destination_attributes_count == 0:
@@ -148,7 +132,7 @@ class Category(Base):
         :param paginated_destination_attribute_values: List of DestinationAttribute values
         :return: Map of attribute value to attribute source_id
         """
-        filters = self.construct_attributes_filter(self.source_field, paginated_destination_attribute_values)
+        filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
         existing_expense_attributes_values = ExpenseAttribute.objects.filter(filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
@@ -167,16 +151,6 @@ class Category(Base):
         """
         payload = []
 
-        print("""
-
-            construct_fyle_payload
-
-        """)
-        print("paginated_destination_attributes")
-        print(paginated_destination_attributes)
-        print("existing_fyle_attributes_map")
-        print(existing_fyle_attributes_map)
-
         for attribute in paginated_destination_attributes:
             category = {
                 'name': attribute.value,
@@ -191,8 +165,5 @@ class Category(Base):
             elif self.is_auto_sync_enabled and not attribute.active:
                 category['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(category)
-
-        print("payload")
-        print(payload)
 
         return payload
