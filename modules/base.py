@@ -209,7 +209,7 @@ class Base:
             )
 
             posted_destination_attributes.extend(paginated_destination_attributes)
-        
+
         return posted_destination_attributes
 
     def get_destination_attributes_generator(self, destination_attributes_count: int, filters: dict):
