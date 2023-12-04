@@ -68,12 +68,6 @@ def disable_category_for_items_mapping(
     :param workspace_id: Workspace Id
     :return: None
     """
-
-    print("""
-
-            disable_category_for_items_mapping: disable_category_for_items_mapping
-
-        """)
     import_log, is_created = ImportLog.objects.get_or_create(
         workspace_id=workspace_id,
         attribute_type='CATEGORY',

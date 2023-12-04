@@ -199,9 +199,6 @@ class Base:
 
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
-        print("destination_attributes_count")
-        print(destination_attributes_count)
-
         # If there are no destination attributes, mark the import as complete
         if destination_attributes_count == 0:
             import_log.status = 'COMPLETE'
