@@ -41,33 +41,22 @@ class Base:
         self.sdk_connection = sdk_connection
         self.destination_sync_methods = destination_sync_methods
 
-    def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
-        """
-        Get mapped attributes ids
-        :param errored_attribute_ids: list[int]
-        :return: list[int]
-        """
-        mapped_attribute_ids = []
-        if self.source_field == "CATEGORY":
-            mapped_attribute_ids: List[int] = Mapping.objects.filter(source_id__in=errored_attribute_ids).values_list('source_id', flat=True)
-
-        return mapped_attribute_ids
-
     def resolve_expense_attribute_errors(self):
         """
         Resolve Expense Attribute Errors
         :return: None
         """
-        errored_attribute_ids: List[int] = Error.objects.filter(
-            is_resolved=False,
-            workspace_id=self.workspace_id,
-            type='{}_MAPPING'.format(self.source_field)
-        ).values_list('expense_attribute_id', flat=True)
+        if self.source_field == "CATEGORY":
+            errored_attribute_ids: List[int] = Error.objects.filter(
+                is_resolved=False,
+                workspace_id=self.workspace_id,
+                type='{}_MAPPING'.format(self.source_field)
+            ).values_list('expense_attribute_id', flat=True)
 
-        if errored_attribute_ids:
-            mapped_attribute_ids = self.__get_mapped_attributes_ids(errored_attribute_ids)
-            if mapped_attribute_ids:
-                Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)
+            if errored_attribute_ids:
+                mapped_attribute_ids = Mapping.objects.filter(source_id__in=errored_attribute_ids).values_list('source_id', flat=True)
+                if mapped_attribute_ids:
+                    Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)
 
     def get_platform_class(self, platform: PlatformConnector):
         """
