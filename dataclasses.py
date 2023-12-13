@@ -24,6 +24,7 @@ class TaskSetting:
     import_tax_codes: Optional[ImportConfig]
     import_vendors_as_merchants: Optional[ImportConfig]
     import_categories: Optional[ImportConfig]
+    import_items: bool
     mapping_settings: List[MappingSetting]
     sdk_connection_string: str
     credentials: models.Model
