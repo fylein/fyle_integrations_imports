@@ -14,6 +14,7 @@ from fyle_accounting_mappings.models import (
 from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions_v2
+from apps.tasks.models import Error
 
 T = TypeVar('T')
 
@@ -30,7 +31,7 @@ class Base:
             platform_class_name: str,
             sync_after:datetime,
             sdk_connection: Type[T],
-            destination_sync_method: str,
+            destination_sync_methods: List[str],
         ):
         self.workspace_id = workspace_id
         self.source_field = source_field
@@ -38,57 +39,24 @@ class Base:
         self.platform_class_name = platform_class_name
         self.sync_after = sync_after
         self.sdk_connection = sdk_connection
-        self.destination_sync_method = destination_sync_method
+        self.destination_sync_methods = destination_sync_methods
 
-    # def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
-    #     """
-    #     Get mapped attributes ids
-    #     :param errored_attribute_ids: list[int]
-    #     :return: list[int]
-    #     """
-    #     mapped_attribute_ids = []
-    #     if self.source_field == "CATEGORY":
-    #         params = {
-    #             'source_category_id__in': errored_attribute_ids,
-    #         }
+    def resolve_expense_attribute_errors(self):
+        """
+        Resolve Expense Attribute Errors
+        :return: None
+        """
+        if self.source_field == "CATEGORY":
+            errored_attribute_ids: List[int] = Error.objects.filter(
+                is_resolved=False,
+                workspace_id=self.workspace_id,
+                type='{}_MAPPING'.format(self.source_field)
+            ).values_list('expense_attribute_id', flat=True)
 
-    #         if self.destination_field == 'EXPENSE_TYPE':
-    #             params['destination_expense_head_id__isnull'] = False
-    #         else:
-    #             params['destination_account_id__isnull'] =  False
-
-    #         mapped_attribute_ids: List[int] = CategoryMapping.objects.filter(
-    #             **params
-    #         ).values_list('source_category_id', flat=True)
-
-    #     return mapped_attribute_ids
-
-    # def resolve_expense_attribute_errors(self):
-    #     """
-    #     Resolve Expense Attribute Errors
-    #     :return: None
-    #     """
-    #     errored_attribute_ids: List[int] = Error.objects.filter(
-    #         is_resolved=False,
-    #         workspace_id=self.workspace_id,
-    #         type='{}_MAPPING'.format(self.source_field)
-    #     ).values_list('expense_attribute_id', flat=True)
-
-    #     if errored_attribute_ids:
-    #         mapped_attribute_ids = self.__get_mapped_attributes_ids(errored_attribute_ids)
-    #         if mapped_attribute_ids:
-    #             Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)
-
-    # def create_ccc_category_mappings(self):
-    #     """
-    #     Create CCC Category Mappings
-    #     :return: None
-    #     """
-    #     configuration = Configuration.objects.filter(workspace_id=self.workspace_id).first()
-    #     if configuration.reimbursable_expenses_object == 'EXPENSE_REPORT' and \
-    #         configuration.corporate_credit_card_expenses_object in ('BILL', 'CHARGE_CARD_TRANSACTION', 'JOURNAL_ENTRY') and\
-    #         self.source_field == 'CATEGORY':
-    #         CategoryMapping.bulk_create_ccc_category_mappings(self.workspace_id)
+            if errored_attribute_ids:
+                mapped_attribute_ids = Mapping.objects.filter(source_id__in=errored_attribute_ids).values_list('source_id', flat=True)
+                if mapped_attribute_ids:
+                    Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)
 
     def get_platform_class(self, platform: PlatformConnector):
         """
@@ -98,7 +66,7 @@ class Base:
         """
         return getattr(platform, self.platform_class_name)
 
-    def construct_attributes_filter(self, attribute_type: str, paginated_destination_attribute_values: List[str] = []):
+    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = []):
         """
         Construct the attributes filter
         :param attribute_type: attribute type
@@ -110,7 +78,7 @@ class Base:
             'workspace_id': self.workspace_id
         }
 
-        if self.sync_after and self.platform_class_name != 'expense_custom_fields':
+        if self.sync_after and self.platform_class_name != 'expense_custom_fields' and is_destination_type:
             filters['updated_at__gte'] = self.sync_after
 
         if paginated_destination_attribute_values:
@@ -147,23 +115,20 @@ class Base:
 
         self.sync_destination_attributes()
 
-        self.construct_payload_and_import_to_fyle(platform, import_log)
+        posted_destination_attributes = self.construct_payload_and_import_to_fyle(platform, import_log)
 
         self.sync_expense_attributes(platform)
 
-        self.create_mappings()
+        if posted_destination_attributes:
+            self.create_mappings(posted_destination_attributes)
 
-    def create_mappings(self):
+        self.resolve_expense_attribute_errors()
+
+    def create_mappings(self, posted_destination_attributes: List[DestinationAttribute]):
         """
         Create mappings
         """
-        destination_attributes_without_duplicates = []
-        destination_attributes = DestinationAttribute.objects.filter(
-            workspace_id=self.workspace_id,
-            attribute_type=self.destination_field,
-            mapping__isnull=True
-        ).order_by('value', 'id')
-        destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
+        destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
 
         if destination_attributes_without_duplicates:
             Mapping.bulk_create_mappings(
@@ -188,8 +153,9 @@ class Base:
         """
         Sync destination attributes
         """
-        sync = getattr(self.sdk_connection, 'sync_{}'.format(self.destination_sync_method))
-        sync()
+        for destination_sync_method in self.destination_sync_methods:
+            sync = getattr(self.sdk_connection, 'sync_{}'.format(destination_sync_method))
+            sync()
 
     def construct_payload_and_import_to_fyle(
         self,
@@ -199,7 +165,7 @@ class Base:
         """
         Construct Payload and Import to fyle in Batches
         """
-        filters = self.construct_attributes_filter(self.destination_field)
+        filters = self.construct_attributes_filter(self.destination_field, True)
 
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
@@ -218,7 +184,7 @@ class Base:
 
         destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, filters)
         platform_class = self.get_platform_class(platform)
-
+        posted_destination_attributes = []
         for paginated_destination_attributes, is_last_batch in destination_attributes_generator:
             fyle_payload = self.setup_fyle_payload_creation(
                 paginated_destination_attributes=paginated_destination_attributes
@@ -230,6 +196,10 @@ class Base:
                 is_last_batch=is_last_batch,
                 import_log=import_log
             )
+
+            posted_destination_attributes.extend(paginated_destination_attributes)
+
+        return posted_destination_attributes
 
     def get_destination_attributes_generator(self, destination_attributes_count: int, filters: dict):
         """
@@ -268,7 +238,7 @@ class Base:
         :param paginated_destination_attribute_values: List of DestinationAttribute values
         :return: Map of attribute value to attribute source_id
         """
-        filters = self.construct_attributes_filter(self.source_field, paginated_destination_attribute_values)
+        filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
         existing_expense_attributes_values = ExpenseAttribute.objects.filter(**filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}

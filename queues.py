@@ -9,6 +9,29 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
     """
     chain = Chain()
 
+    if task_settings['import_categories']:
+        chain.append(
+            'fyle_integrations_imports.tasks.trigger_import_via_schedule',
+            workspace_id,
+            task_settings['import_categories']['destination_field'],
+            'CATEGORY',
+            task_settings['sdk_connection_string'],
+            task_settings['credentials'],
+            task_settings['import_categories']['destination_sync_methods'],
+            task_settings['import_categories']['is_auto_sync_enabled'],
+            task_settings['import_categories']['is_3d_mapping'],
+            task_settings['import_categories']['charts_of_accounts'],
+            False
+        )
+
+    if task_settings['import_items'] is not None and not task_settings['import_items']:
+        chain.append(
+            'fyle_integrations_imports.tasks.disable_category_for_items_mapping',
+            workspace_id,
+            task_settings['sdk_connection_string'],
+            task_settings['credentials'],
+        )
+
     if task_settings['mapping_settings']:
         for mapping_setting in task_settings['mapping_settings']:
             if mapping_setting['source_field'] in ['PROJECT']:
@@ -19,8 +42,10 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
                     mapping_setting['source_field'],
                     task_settings['sdk_connection_string'],
                     task_settings['credentials'],
-                    mapping_setting['destination_sync_method'],
+                    mapping_setting['destination_sync_methods'],
                     mapping_setting['is_auto_sync_enabled'],
+                    False,
+                    None,
                     mapping_setting['is_custom']
                 )
 
