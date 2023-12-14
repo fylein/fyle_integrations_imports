@@ -52,8 +52,10 @@ def trigger_import_via_schedule(
         'sync_after': sync_after,
         'sdk_connection': sdk_connection,
         'destination_sync_methods': destination_sync_methods,
-        'is_auto_sync_enabled': is_auto_sync_enabled
     }
+
+    if source_field in ['PROJECT', 'CATEGORY']:
+        args['is_auto_sync_enabled'] = is_auto_sync_enabled
 
     if source_field == 'CATEGORY':
         args['is_3d_mapping'] = is_3d_mapping
