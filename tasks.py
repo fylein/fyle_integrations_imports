@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
 from fyle_integrations_imports.modules.categories import Category
+from fyle_integrations_imports.modules.cost_centers import CostCenter
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute
@@ -13,7 +14,8 @@ from django.db import models
 
 SOURCE_FIELD_CLASS_MAP = {
     'PROJECT': Project,
-    'CATEGORY': Category
+    'CATEGORY': Category,
+    'COST_CENTER': CostCenter
 }
 
 

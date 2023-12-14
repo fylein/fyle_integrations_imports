@@ -34,7 +34,7 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
 
     if task_settings['mapping_settings']:
         for mapping_setting in task_settings['mapping_settings']:
-            if mapping_setting['source_field'] in ['PROJECT']:
+            if mapping_setting['source_field'] in ['PROJECT', 'COST_CENTER']:
                 chain.append(
                     'fyle_integrations_imports.tasks.trigger_import_via_schedule',
                     workspace_id,
