@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
 from fyle_integrations_imports.modules.categories import Category
+from fyle_integrations_imports.modules.cost_centers import CostCenter
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute
@@ -13,7 +14,8 @@ from django.db import models
 
 SOURCE_FIELD_CLASS_MAP = {
     'PROJECT': Project,
-    'CATEGORY': Category
+    'CATEGORY': Category,
+    'COST_CENTER': CostCenter
 }
 
 
@@ -50,8 +52,10 @@ def trigger_import_via_schedule(
         'sync_after': sync_after,
         'sdk_connection': sdk_connection,
         'destination_sync_methods': destination_sync_methods,
-        'is_auto_sync_enabled': is_auto_sync_enabled
     }
+
+    if source_field in ['PROJECT', 'CATEGORY']:
+        args['is_auto_sync_enabled'] = is_auto_sync_enabled
 
     if source_field == 'CATEGORY':
         args['is_3d_mapping'] = is_3d_mapping
