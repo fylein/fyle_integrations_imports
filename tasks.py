@@ -4,6 +4,7 @@ from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
 from fyle_integrations_imports.modules.categories import Category
 from fyle_integrations_imports.modules.cost_centers import CostCenter
+from fyle_integrations_imports.modules.expense_custom_fields import ExpenseCustomField
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute
@@ -44,8 +45,6 @@ def trigger_import_via_schedule(
 
     sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
 
-    module_class = SOURCE_FIELD_CLASS_MAP[source_field]
-
     args = {
         'workspace_id': workspace_id,
         'destination_field': destination_field,
@@ -54,16 +53,22 @@ def trigger_import_via_schedule(
         'destination_sync_methods': destination_sync_methods,
     }
 
-    if source_field in ['PROJECT', 'CATEGORY']:
-        args['is_auto_sync_enabled'] = is_auto_sync_enabled
+    if is_custom:
+        args['source_field'] = source_field
+        ExpenseCustomField(**args).trigger_import()
+    else:
+        module_class = SOURCE_FIELD_CLASS_MAP[source_field]
 
-    if source_field == 'CATEGORY':
-        args['is_3d_mapping'] = is_3d_mapping
-        args['charts_of_accounts'] = charts_of_accounts
+        if source_field in ['PROJECT', 'CATEGORY']:
+            args['is_auto_sync_enabled'] = is_auto_sync_enabled
 
-    item = module_class(**args)
+        if source_field == 'CATEGORY':
+            args['is_3d_mapping'] = is_3d_mapping
+            args['charts_of_accounts'] = charts_of_accounts
 
-    item.trigger_import()
+        item = module_class(**args)
+
+        item.trigger_import()
 
 
 def disable_category_for_items_mapping(

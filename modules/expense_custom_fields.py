@@ -1,28 +1,32 @@
 from datetime import datetime
-from typing import List, Dict
-from apps.mappings.imports.modules.base import Base
+from typing import List, Type, TypeVar
+from fyle_integrations_imports.modules.base import Base
+from fyle_integrations_imports.models import ImportLog
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute
 )
-from apps.mappings.exceptions import handle_import_exceptions
-from apps.mappings.models import ImportLog
-from fyle_integrations_platform_connector import PlatformConnector
 from apps.workspaces.models import FyleCredential
 from apps.mappings.constants import FYLE_EXPENSE_SYSTEM_FIELDS
+from fyle_integrations_platform_connector import PlatformConnector
+from apps.mappings.exceptions import handle_import_exceptions_v2
+
+T = TypeVar('T')
 
 
 class ExpenseCustomField(Base):
     """
     Class for ExepenseCustomField module
     """
-    def __init__(self, workspace_id: int, source_field: str, destination_field: str, sync_after: datetime):
+    def __init__(self, workspace_id: int, source_field: str, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str]):
         super().__init__(
             workspace_id=workspace_id,
             source_field=source_field,
             destination_field=destination_field,
             platform_class_name='expense_custom_fields',
-            sync_after=sync_after
+            sync_after=sync_after,
+            sdk_connection=sdk_connection,
+            destination_sync_methods=destination_sync_methods
         )
 
     def trigger_import(self):
@@ -31,7 +35,7 @@ class ExpenseCustomField(Base):
         """
         self.check_import_log_and_start_import()
 
-    def construct_custom_field_placeholder(self, source_placeholder: str, fyle_attribute: str, existing_attribute: Dict):
+    def construct_custom_field_placeholder(self, source_placeholder: str, fyle_attribute: str, existing_attribute: object):
         """
         Construct placeholder for custom field
         :param source_placeholder: Placeholder from mapping settings
@@ -154,8 +158,10 @@ class ExpenseCustomField(Base):
             import_log=import_log
         )
 
+        return destination_attributes_without_duplicates
+
     # import_destination_attribute_to_fyle method is overridden
-    @handle_import_exceptions
+    @handle_import_exceptions_v2
     def import_destination_attribute_to_fyle(self, import_log: ImportLog):
         """
         Import destiantion_attributes field to Fyle and Auto Create Mappings
@@ -165,13 +171,14 @@ class ExpenseCustomField(Base):
         fyle_credentials = FyleCredential.objects.get(workspace_id=self.workspace_id)
         platform = PlatformConnector(fyle_credentials=fyle_credentials)
 
-        self.sync_destination_attributes(self.destination_field)
+        self.sync_destination_attributes()
 
-        self.construct_payload_and_import_to_fyle(
+        posted_destination_attributes = self.construct_payload_and_import_to_fyle(
             platform=platform,
             import_log=import_log
         )
 
         self.sync_expense_attributes(platform)
 
-        self.create_mappings()
+        if posted_destination_attributes:
+            self.create_mappings(posted_destination_attributes)
