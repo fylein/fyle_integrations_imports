@@ -4,6 +4,7 @@ from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
 from fyle_integrations_imports.modules.categories import Category
 from fyle_integrations_imports.modules.cost_centers import CostCenter
+from fyle_integrations_imports.modules.expense_custom_fields import ExpenseCustomField
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute
@@ -44,7 +45,7 @@ def trigger_import_via_schedule(
 
     sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
 
-    module_class = SOURCE_FIELD_CLASS_MAP[source_field]
+    module_class = SOURCE_FIELD_CLASS_MAP[source_field] if source_field in SOURCE_FIELD_CLASS_MAP else ExpenseCustomField
 
     args = {
         'workspace_id': workspace_id,
@@ -54,6 +55,9 @@ def trigger_import_via_schedule(
         'destination_sync_methods': destination_sync_methods,
     }
 
+    if is_custom:
+        args['source_field'] = source_field
+
     if source_field in ['PROJECT', 'CATEGORY']:
         args['is_auto_sync_enabled'] = is_auto_sync_enabled
 
@@ -62,7 +66,6 @@ def trigger_import_via_schedule(
         args['charts_of_accounts'] = charts_of_accounts
 
     item = module_class(**args)
-
     item.trigger_import()
 
 
