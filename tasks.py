@@ -45,6 +45,8 @@ def trigger_import_via_schedule(
 
     sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
 
+    module_class = SOURCE_FIELD_CLASS_MAP[source_field] if source_field in SOURCE_FIELD_CLASS_MAP else ExpenseCustomField
+
     args = {
         'workspace_id': workspace_id,
         'destination_field': destination_field,
@@ -55,20 +57,16 @@ def trigger_import_via_schedule(
 
     if is_custom:
         args['source_field'] = source_field
-        ExpenseCustomField(**args).trigger_import()
-    else:
-        module_class = SOURCE_FIELD_CLASS_MAP[source_field]
 
-        if source_field in ['PROJECT', 'CATEGORY']:
-            args['is_auto_sync_enabled'] = is_auto_sync_enabled
+    if source_field in ['PROJECT', 'CATEGORY']:
+        args['is_auto_sync_enabled'] = is_auto_sync_enabled
 
-        if source_field == 'CATEGORY':
-            args['is_3d_mapping'] = is_3d_mapping
-            args['charts_of_accounts'] = charts_of_accounts
+    if source_field == 'CATEGORY':
+        args['is_3d_mapping'] = is_3d_mapping
+        args['charts_of_accounts'] = charts_of_accounts
 
-        item = module_class(**args)
-
-        item.trigger_import()
+    item = module_class(**args)
+    item.trigger_import()
 
 
 def disable_category_for_items_mapping(
