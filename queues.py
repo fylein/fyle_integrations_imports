@@ -24,6 +24,36 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
             False
         )
 
+    if task_settings['import_tax']:
+        chain.append(
+            'fyle_integrations_imports.tasks.trigger_import_via_schedule',
+            workspace_id,
+            task_settings['import_tax']['destination_field'],
+            'TAX_GROUP',
+            task_settings['sdk_connection_string'],
+            task_settings['credentials'],
+            task_settings['import_tax']['destination_sync_methods'],
+            task_settings['import_tax']['is_auto_sync_enabled'],
+            task_settings['import_tax']['is_3d_mapping'],
+            None,
+            False
+        )
+
+    if task_settings['import_vendors_as_merchants']:
+        chain.append(
+            'fyle_integrations_imports.tasks.trigger_import_via_schedule',
+            workspace_id,
+            task_settings['import_vendors_as_merchants']['destination_field'],
+            'MERCHANT',
+            task_settings['sdk_connection_string'],
+            task_settings['credentials'],
+            task_settings['import_vendors_as_merchants']['destination_sync_methods'],
+            task_settings['import_vendors_as_merchants']['is_auto_sync_enabled'],
+            task_settings['import_vendors_as_merchants']['is_3d_mapping'],
+            None,
+            False
+        )
+
     if task_settings['import_items'] is not None and not task_settings['import_items']:
         chain.append(
             'fyle_integrations_imports.tasks.disable_category_for_items_mapping',

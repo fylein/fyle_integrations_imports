@@ -4,6 +4,8 @@ from fyle_integrations_imports.models import ImportLog
 from fyle_integrations_imports.modules.projects import Project
 from fyle_integrations_imports.modules.categories import Category
 from fyle_integrations_imports.modules.cost_centers import CostCenter
+from fyle_integrations_imports.modules.tax_groups import TaxGroup
+from fyle_integrations_imports.modules.merchants import Merchant
 from fyle_integrations_imports.modules.expense_custom_fields import ExpenseCustomField
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
@@ -16,7 +18,9 @@ from django.db import models
 SOURCE_FIELD_CLASS_MAP = {
     'PROJECT': Project,
     'CATEGORY': Category,
-    'COST_CENTER': CostCenter
+    'COST_CENTER': CostCenter,
+    'TAX_GROUP': TaxGroup,
+    'MERCHANT': Merchant,
 }
 
 
