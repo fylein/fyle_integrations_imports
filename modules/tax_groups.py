@@ -1,20 +1,24 @@
 from datetime import datetime
-from typing import List
-from apps.mappings.imports.modules.base import Base
+from typing import List, Type, TypeVar
+from fyle_integrations_imports.modules.base import Base
 from fyle_accounting_mappings.models import DestinationAttribute
+
+T = TypeVar('T')
 
 
 class TaxGroup(Base):
     """
     Class for TaxGroup module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str]):
         super().__init__(
             workspace_id=workspace_id,
             source_field='TAX_GROUP',
             destination_field=destination_field,
             platform_class_name='tax_groups',
-            sync_after=sync_after
+            sync_after=sync_after,
+            sdk_connection=sdk_connection,
+            destination_sync_methods=destination_sync_methods
         )
 
     def trigger_import(self):
@@ -27,8 +31,7 @@ class TaxGroup(Base):
     def construct_fyle_payload(
         self,
         paginated_destination_attributes: List[DestinationAttribute],
-        existing_fyle_attributes_map: object,
-        is_auto_sync_status_allowed: bool
+        existing_fyle_attributes_map: object
     ):
         """
         Construct Fyle payload for TaxGroup module
