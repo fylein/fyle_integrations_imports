@@ -46,7 +46,7 @@ class Project(Base):
             project = {
                 'name': attribute.value,
                 'code': attribute.destination_id,
-                'description': 'Sage Intacct Project - {0}, Id - {1}'.format(
+                'description': 'Project - {0}, Id - {1}'.format(
                     attribute.value,
                     attribute.destination_id
                 ),
