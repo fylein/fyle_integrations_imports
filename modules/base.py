@@ -1,3 +1,4 @@
+import logging
 import math
 from typing import List, Type, TypeVar
 from datetime import (
@@ -17,6 +18,9 @@ from apps.mappings.exceptions import handle_import_exceptions_v2
 from apps.tasks.models import Error
 
 T = TypeVar('T')
+
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
 
 
 class Base:
@@ -251,6 +255,8 @@ class Base:
         :param is_last_batch: bool
         :param import_log: ImportLog object
         """
+        logger.info("| Importing {} to Fyle | Content: {{Fyle Payload count: {} is_last_batch: {}}}".format(self.destination_field, len(fyle_payload), is_last_batch))
+
         if fyle_payload and self.platform_class_name in ['expense_custom_fields', 'merchants']:
             resource_class.post(fyle_payload)
         elif fyle_payload:
