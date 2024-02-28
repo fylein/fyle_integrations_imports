@@ -36,7 +36,7 @@ def trigger_import_via_schedule(
         is_3d_mapping: bool = False,
         charts_of_accounts: List[str] = None,
         is_custom: bool = False
-    ):
+):
     """
     Trigger import via schedule
     :param workspace_id: Workspace id
@@ -77,7 +77,7 @@ def disable_category_for_items_mapping(
         workspace_id: int,
         sdk_connection_string: str,
         credentials: Type[models.Model]
-    ):
+):
     """
     Disable Category for Items Mapping
     :param workspace_id: Workspace Id
