@@ -46,7 +46,7 @@ class TaxGroup(Base):
             tax_group = {
                 'name': attribute.value,
                 'is_enabled': True,
-                'percentage': round((attribute.detail['tax_rate']/100), 2)
+                'percentage': round((attribute.detail['tax_rate'] / 100), 2)
             }
 
             # Create a new tax-group if it does not exist in Fyle

@@ -36,7 +36,7 @@ class Base:
             sync_after:datetime,
             sdk_connection: Type[T],
             destination_sync_methods: List[str],
-        ):
+    ):
         self.workspace_id = workspace_id
         self.source_field = source_field
         self.destination_field = destination_field
@@ -183,7 +183,7 @@ class Base:
             import_log.save()
             return
         else:
-            import_log.total_batches_count = math.ceil(destination_attributes_count/200)
+            import_log.total_batches_count = math.ceil(destination_attributes_count / 200)
             import_log.save()
 
         destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, filters)
