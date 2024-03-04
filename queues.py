@@ -9,6 +9,12 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
     """
     chain = Chain()
 
+    if task_settings['custom_properties'] is not None:
+        chain.append(
+            task_settings['custom_properties']['func'],
+            **task_settings['custom_properties']['args']
+        )
+
     if task_settings['import_categories']:
         chain.append(
             'fyle_integrations_imports.tasks.trigger_import_via_schedule',
