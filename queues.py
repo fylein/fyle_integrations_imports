@@ -9,7 +9,9 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
     """
     chain = Chain()
 
-    if task_settings['custom_properties'] is not None:
+    custom_properties_task = task_settings.get('custom_properties', None)
+
+    if custom_properties_task is not None:
         chain.append(
             task_settings['custom_properties']['func'],
             **task_settings['custom_properties']['args']
