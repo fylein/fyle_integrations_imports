@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict
 from django.db import models
 
 
@@ -20,6 +20,12 @@ class ImportConfig:
 
 
 @dataclass
+class CustomProperties:
+    func: str
+    args: Optional[Dict]
+
+
+@dataclass
 class TaskSetting:
     import_tax_codes: Optional[ImportConfig]
     import_vendors_as_merchants: Optional[ImportConfig]
@@ -29,3 +35,4 @@ class TaskSetting:
     mapping_settings: List[MappingSetting]
     sdk_connection_string: str
     credentials: models.Model
+    custom_properties: Optional[CustomProperties]
