@@ -61,6 +61,10 @@ class Category(Base):
                 item_filter = filters & Q(display_name='Item')
                 filters = account_filters | item_filter if 'accounts' in self.destination_sync_methods else item_filter
 
+            if 'expense_categories' in self.destination_sync_methods:
+                expense_category_filter = filters & Q(display_name='Expense Category')
+                filters = account_filters | expense_category_filter if 'accounts' in self.destination_sync_methods else expense_category_filter
+
             if 'items' not in self.destination_sync_methods:
                 filters = account_filters
 
