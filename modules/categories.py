@@ -52,8 +52,9 @@ class Category(Base):
         if paginated_destination_attribute_values:
             filters &= Q(value__in=paginated_destination_attribute_values)
 
+        account_filters = filters
         if attribute_type != 'CATEGORY':
-            if 'accounts' in self.destination_sync_methods:
+            if 'accounts' in self.destination_sync_methods and len(self.charts_of_accounts) > 0:
                 account_filters = filters & (Q(detail__account_type__in=self.charts_of_accounts, display_name='Account'))
 
             if 'items' in self.destination_sync_methods:
