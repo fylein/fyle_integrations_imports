@@ -1,4 +1,5 @@
 import math
+import copy
 from datetime import datetime
 from django.db.models import Q
 from typing import List, Type, TypeVar
@@ -17,10 +18,25 @@ class Category(Base):
     """
     Class for Category module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool, is_3d_mapping:bool, charts_of_accounts: List[str]):
+    def __init__(
+            self,
+            workspace_id: int,
+            destination_field: str,
+            sync_after: datetime,
+            sdk_connection: Type[T],
+            destination_sync_methods: List[str],
+            is_auto_sync_enabled: bool,
+            is_3d_mapping: bool,
+            charts_of_accounts: List[str],
+            use_mapping_table: bool = True,
+            is_ccc_mapping_enabled: bool = False
+    ):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         self.is_3d_mapping = is_3d_mapping
         self.charts_of_accounts = charts_of_accounts
+        self.use_mapping_table = use_mapping_table
+        self.is_ccc_mapping_enabled = is_ccc_mapping_enabled
+
         super().__init__(
             workspace_id=workspace_id,
             source_field='CATEGORY',
@@ -52,10 +68,13 @@ class Category(Base):
         if paginated_destination_attribute_values:
             filters &= Q(value__in=paginated_destination_attribute_values)
 
-        account_filters = filters
+        account_filters = copy.deepcopy(filters)
+
         if attribute_type != 'CATEGORY':
-            if 'accounts' in self.destination_sync_methods and len(self.charts_of_accounts) > 0:
-                account_filters = filters & (Q(detail__account_type__in=self.charts_of_accounts, display_name='Account'))
+            if 'accounts' in self.destination_sync_methods:
+                account_filters = filters & Q(display_name='Account')
+                if len(self.charts_of_accounts) > 0:
+                    account_filters &= Q(detail__account_type__in=self.charts_of_accounts)
 
             if 'items' in self.destination_sync_methods:
                 item_filter = filters & Q(display_name='Item')

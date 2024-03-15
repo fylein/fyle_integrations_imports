@@ -10,9 +10,10 @@ from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
     Mapping,
     DestinationAttribute,
-    ExpenseAttribute
+    ExpenseAttribute,
+    CategoryMapping
 )
-from apps.workspaces.models import FyleCredential
+from apps.workspaces.models import FyleCredential, Configuration
 from fyle_integrations_imports.models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions_v2
 from apps.tasks.models import Error
@@ -45,6 +46,29 @@ class Base:
         self.sdk_connection = sdk_connection
         self.destination_sync_methods = destination_sync_methods
 
+    def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
+        """
+        Get mapped attributes ids
+        :param errored_attribute_ids: list[int]
+        :return: list[int]
+        """
+        mapped_attribute_ids = []
+        if self.source_field == "CATEGORY":
+            params = {
+                'source_category_id__in': errored_attribute_ids,
+            }
+
+            if self.destination_field in ['EXPENSE_CATEGORY', 'EXPENSE_TYPE']:
+                params['destination_expense_head_id__isnull'] = False
+            else:
+                params['destination_account_id__isnull'] = False
+
+            mapped_attribute_ids: List[int] = CategoryMapping.objects.filter(
+                **params
+            ).values_list('source_category_id', flat=True)
+
+        return mapped_attribute_ids
+
     def resolve_expense_attribute_errors(self):
         """
         Resolve Expense Attribute Errors
@@ -59,6 +83,8 @@ class Base:
 
             if errored_attribute_ids:
                 mapped_attribute_ids = Mapping.objects.filter(source_id__in=errored_attribute_ids).values_list('source_id', flat=True)
+                category_mapping_attribute_ids = self.__get_mapped_attributes_ids(errored_attribute_ids)
+                mapped_attribute_ids.extend(category_mapping_attribute_ids)
                 if mapped_attribute_ids:
                     Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)
 
@@ -125,6 +151,7 @@ class Base:
 
         if posted_destination_attributes:
             self.create_mappings(posted_destination_attributes)
+            self.create_ccc_mappings()
 
         self.resolve_expense_attribute_errors()
 
@@ -132,15 +159,51 @@ class Base:
         """
         Create mappings
         """
-        destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
+        if self.use_mapping_table:
+            destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
+            if destination_attributes_without_duplicates:
+                Mapping.bulk_create_mappings(
+                    destination_attributes_without_duplicates,
+                    self.source_field,
+                    self.destination_field,
+                    self.workspace_id
+                )
+        elif self.source_field == 'CATEGORY' and not self.use_mapping_table:
+            self.create_category_mappings()
 
-        if destination_attributes_without_duplicates:
-            Mapping.bulk_create_mappings(
-                destination_attributes_without_duplicates,
-                self.source_field,
-                self.destination_field,
-                self.workspace_id
-            )
+    def create_category_mappings(self):
+        """
+        Create Category mappings
+        :return: None
+        """
+        filters = {
+            'workspace_id': self.workspace_id,
+            'attribute_type': self.destination_field
+        }
+        if self.destination_field in ['EXPENSE_CATEGORY', 'EXPENSE_TYPE']:
+            filters['destination_expense_head__isnull'] = True
+        elif self.destination_field == 'ACCOUNT':
+            filters['destination_account__isnull'] = True
+
+        # get all the destination attributes that have category mappings as null
+        destination_attributes: List[DestinationAttribute] = DestinationAttribute.objects.filter(**filters)
+
+        destination_attributes_without_duplicates = []
+        destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
+
+        CategoryMapping.bulk_create_mappings(
+            destination_attributes_without_duplicates,
+            self.destination_field,
+            self.workspace_id
+        )
+
+    def create_ccc_mappings(self):
+        """
+        Create CCC mappings
+        :return: None
+        """
+        if self.source_field == 'CATEGORY' and self.is_ccc_mapping_enabled:
+            CategoryMapping.bulk_create_ccc_category_mappings(self.workspace_id)
 
     def sync_expense_attributes(self, platform: PlatformConnector):
         """
