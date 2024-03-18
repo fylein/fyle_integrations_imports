@@ -215,3 +215,26 @@ class Category(Base):
             self.destination_field,
             self.workspace_id
         )
+
+    def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
+        """
+        Get mapped attributes ids
+        :param errored_attribute_ids: list[int]
+        :return: list[int]
+        """
+        mapped_attribute_ids = []
+        if self.source_field == "CATEGORY":
+            params = {
+                'source_category_id__in': errored_attribute_ids,
+            }
+
+            if self.destination_field in ['EXPENSE_CATEGORY', 'EXPENSE_TYPE']:
+                params['destination_expense_head_id__isnull'] = False
+            else:
+                params['destination_account_id__isnull'] = False
+
+            mapped_attribute_ids: List[int] = CategoryMapping.objects.filter(
+                **params
+            ).values_list('source_category_id', flat=True)
+
+        return mapped_attribute_ids
