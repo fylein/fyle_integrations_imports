@@ -13,7 +13,7 @@ from fyle_accounting_mappings.models import (
     ExpenseAttribute,
     CategoryMapping
 )
-from apps.workspaces.models import FyleCredential, Configuration
+from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions_v2
 from apps.tasks.models import Error
