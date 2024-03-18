@@ -7,7 +7,8 @@ from fyle_integrations_imports.modules.base import Base
 from fyle_integrations_imports.models import ImportLog
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
-    ExpenseAttribute
+    ExpenseAttribute,
+    CategoryMapping
 )
 from fyle_integrations_platform_connector import PlatformConnector
 
@@ -28,14 +29,12 @@ class Category(Base):
             is_auto_sync_enabled: bool,
             is_3d_mapping: bool,
             charts_of_accounts: List[str],
-            use_mapping_table: bool = True,
-            is_ccc_mapping_enabled: bool = False
+            use_mapping_table: bool = True
     ):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         self.is_3d_mapping = is_3d_mapping
         self.charts_of_accounts = charts_of_accounts
         self.use_mapping_table = use_mapping_table
-        self.is_ccc_mapping_enabled = is_ccc_mapping_enabled
 
         super().__init__(
             workspace_id=workspace_id,
@@ -190,3 +189,29 @@ class Category(Base):
                 payload.append(category)
 
         return payload
+
+    def create_category_mappings(self):
+        """
+        Create Category mappings
+        :return: None
+        """
+        filters = {
+            'workspace_id': self.workspace_id,
+            'attribute_type': self.destination_field
+        }
+        if self.destination_field in ['EXPENSE_CATEGORY', 'EXPENSE_TYPE']:
+            filters['destination_expense_head__isnull'] = True
+        elif self.destination_field == 'ACCOUNT':
+            filters['destination_account__isnull'] = True
+
+        # get all the destination attributes that have category mappings as null
+        destination_attributes: List[DestinationAttribute] = DestinationAttribute.objects.filter(**filters)
+
+        destination_attributes_without_duplicates = []
+        destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
+
+        CategoryMapping.bulk_create_mappings(
+            destination_attributes_without_duplicates,
+            self.destination_field,
+            self.workspace_id
+        )
