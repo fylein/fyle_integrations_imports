@@ -10,7 +10,8 @@ from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
     Mapping,
     DestinationAttribute,
-    ExpenseAttribute
+    ExpenseAttribute,
+    CategoryMapping
 )
 from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.models import ImportLog
@@ -58,7 +59,13 @@ class Base:
             ).values_list('expense_attribute_id', flat=True)
 
             if errored_attribute_ids:
-                mapped_attribute_ids = Mapping.objects.filter(source_id__in=errored_attribute_ids).values_list('source_id', flat=True)
+                mapped_attribute_ids = None
+
+                if not self.source_field == 'CATEGORY' or self.use_mapping_table:
+                    mapped_attribute_ids = Mapping.objects.filter(source_id__in=errored_attribute_ids).values_list('source_id', flat=True)
+                elif self.source_field == 'CATEGORY' and not self.use_mapping_table:
+                    mapped_attribute_ids = self.__get_mapped_attributes_ids(errored_attribute_ids)
+
                 if mapped_attribute_ids:
                     Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)
 
@@ -126,21 +133,33 @@ class Base:
         if posted_destination_attributes:
             self.create_mappings(posted_destination_attributes)
 
+            if self.source_field == 'CATEGORY' and self.is_3d_mapping:
+                self.create_ccc_mappings()
+
         self.resolve_expense_attribute_errors()
 
     def create_mappings(self, posted_destination_attributes: List[DestinationAttribute]):
         """
         Create mappings
         """
-        destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
+        if not self.source_field == 'CATEGORY' or self.use_mapping_table:
+            destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
+            if destination_attributes_without_duplicates:
+                Mapping.bulk_create_mappings(
+                    destination_attributes_without_duplicates,
+                    self.source_field,
+                    self.destination_field,
+                    self.workspace_id
+                )
+        elif self.source_field == 'CATEGORY' and not self.use_mapping_table:
+            self.create_category_mappings()
 
-        if destination_attributes_without_duplicates:
-            Mapping.bulk_create_mappings(
-                destination_attributes_without_duplicates,
-                self.source_field,
-                self.destination_field,
-                self.workspace_id
-            )
+    def create_ccc_mappings(self):
+        """
+        Create CCC mappings
+        :return: None
+        """
+        CategoryMapping.bulk_create_ccc_category_mappings(self.workspace_id)
 
     def sync_expense_attributes(self, platform: PlatformConnector):
         """

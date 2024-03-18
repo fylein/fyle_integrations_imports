@@ -1,4 +1,5 @@
 import math
+import copy
 from datetime import datetime
 from django.db.models import Q
 from typing import List, Type, TypeVar
@@ -6,7 +7,8 @@ from fyle_integrations_imports.modules.base import Base
 from fyle_integrations_imports.models import ImportLog
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
-    ExpenseAttribute
+    ExpenseAttribute,
+    CategoryMapping
 )
 from fyle_integrations_platform_connector import PlatformConnector
 
@@ -17,10 +19,23 @@ class Category(Base):
     """
     Class for Category module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool, is_3d_mapping:bool, charts_of_accounts: List[str]):
+    def __init__(
+            self,
+            workspace_id: int,
+            destination_field: str,
+            sync_after: datetime,
+            sdk_connection: Type[T],
+            destination_sync_methods: List[str],
+            is_auto_sync_enabled: bool,
+            is_3d_mapping: bool,
+            charts_of_accounts: List[str],
+            use_mapping_table: bool = True
+    ):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         self.is_3d_mapping = is_3d_mapping
         self.charts_of_accounts = charts_of_accounts
+        self.use_mapping_table = use_mapping_table
+
         super().__init__(
             workspace_id=workspace_id,
             source_field='CATEGORY',
@@ -52,13 +67,21 @@ class Category(Base):
         if paginated_destination_attribute_values:
             filters &= Q(value__in=paginated_destination_attribute_values)
 
+        account_filters = copy.deepcopy(filters)
+
         if attribute_type != 'CATEGORY':
             if 'accounts' in self.destination_sync_methods:
-                account_filters = filters & (Q(detail__account_type__in=self.charts_of_accounts, display_name='Account'))
+                account_filters = filters & Q(display_name='Account')
+                if len(self.charts_of_accounts) > 0:
+                    account_filters &= Q(detail__account_type__in=self.charts_of_accounts)
 
             if 'items' in self.destination_sync_methods:
                 item_filter = filters & Q(display_name='Item')
                 filters = account_filters | item_filter if 'accounts' in self.destination_sync_methods else item_filter
+
+            if 'expense_categories' in self.destination_sync_methods:
+                expense_category_filter = filters & Q(display_name='Expense Category')
+                filters = account_filters | expense_category_filter if 'accounts' in self.destination_sync_methods else expense_category_filter
 
             if 'items' not in self.destination_sync_methods:
                 filters = account_filters
@@ -166,3 +189,52 @@ class Category(Base):
                 payload.append(category)
 
         return payload
+
+    def create_category_mappings(self):
+        """
+        Create Category mappings
+        :return: None
+        """
+        filters = {
+            'workspace_id': self.workspace_id,
+            'attribute_type': self.destination_field
+        }
+        if self.destination_field in ['EXPENSE_CATEGORY', 'EXPENSE_TYPE']:
+            filters['destination_expense_head__isnull'] = True
+        elif self.destination_field == 'ACCOUNT':
+            filters['destination_account__isnull'] = True
+
+        # get all the destination attributes that have category mappings as null
+        destination_attributes: List[DestinationAttribute] = DestinationAttribute.objects.filter(**filters)
+
+        destination_attributes_without_duplicates = []
+        destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
+
+        CategoryMapping.bulk_create_mappings(
+            destination_attributes_without_duplicates,
+            self.destination_field,
+            self.workspace_id
+        )
+
+    def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
+        """
+        Get mapped attributes ids
+        :param errored_attribute_ids: list[int]
+        :return: list[int]
+        """
+        mapped_attribute_ids = []
+        if self.source_field == "CATEGORY":
+            params = {
+                'source_category_id__in': errored_attribute_ids,
+            }
+
+            if self.destination_field in ['EXPENSE_CATEGORY', 'EXPENSE_TYPE']:
+                params['destination_expense_head_id__isnull'] = False
+            else:
+                params['destination_account_id__isnull'] = False
+
+            mapped_attribute_ids: List[int] = CategoryMapping.objects.filter(
+                **params
+            ).values_list('source_category_id', flat=True)
+
+        return mapped_attribute_ids

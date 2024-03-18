@@ -35,7 +35,8 @@ def trigger_import_via_schedule(
         is_auto_sync_enabled: bool = False,
         is_3d_mapping: bool = False,
         charts_of_accounts: List[str] = None,
-        is_custom: bool = False
+        is_custom: bool = False,
+        use_mapping_table: bool = True
 ):
     """
     Trigger import via schedule
@@ -68,6 +69,7 @@ def trigger_import_via_schedule(
     if source_field == 'CATEGORY':
         args['is_3d_mapping'] = is_3d_mapping
         args['charts_of_accounts'] = charts_of_accounts
+        args['use_mapping_table'] = use_mapping_table
 
     item = module_class(**args)
     item.trigger_import()
