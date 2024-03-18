@@ -159,7 +159,7 @@ class Base:
         """
         Create mappings
         """
-        if self.use_mapping_table:
+        if not self.source_field == 'CATEGORY' or self.use_mapping_table:
             destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
             if destination_attributes_without_duplicates:
                 Mapping.bulk_create_mappings(
