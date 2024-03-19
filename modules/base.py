@@ -64,7 +64,7 @@ class Base:
                 if not self.source_field == 'CATEGORY' or self.use_mapping_table:
                     mapped_attribute_ids = Mapping.objects.filter(source_id__in=errored_attribute_ids).values_list('source_id', flat=True)
                 elif self.source_field == 'CATEGORY' and not self.use_mapping_table:
-                    mapped_attribute_ids = self.__get_mapped_attributes_ids(errored_attribute_ids)
+                    mapped_attribute_ids = self.get_mapped_attributes_ids(errored_attribute_ids)
 
                 if mapped_attribute_ids:
                     Error.objects.filter(expense_attribute_id__in=mapped_attribute_ids).update(is_resolved=True)

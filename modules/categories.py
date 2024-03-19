@@ -216,7 +216,7 @@ class Category(Base):
             self.workspace_id
         )
 
-    def __get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
+    def get_mapped_attributes_ids(self, errored_attribute_ids: List[int]):
         """
         Get mapped attributes ids
         :param errored_attribute_ids: list[int]
