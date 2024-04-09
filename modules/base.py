@@ -77,7 +77,7 @@ class Base:
         """
         return getattr(platform, self.platform_class_name)
 
-    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = []):
+    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = [], is_auto_sync_enabled: bool = False):
         """
         Construct the attributes filter
         :param attribute_type: attribute type
@@ -88,6 +88,9 @@ class Base:
             'attribute_type': attribute_type,
             'workspace_id': self.workspace_id
         }
+
+        if not is_auto_sync_enabled:
+            filters['active'] = True
 
         if self.sync_after and self.platform_class_name != 'expense_custom_fields' and is_destination_type:
             filters['updated_at__gte'] = self.sync_after
@@ -188,7 +191,12 @@ class Base:
         """
         Construct Payload and Import to fyle in Batches
         """
-        filters = self.construct_attributes_filter(self.destination_field, True)
+        is_auto_sync_enabled = False
+
+        if hasattr(self, 'is_auto_sync_enabled'):
+            is_auto_sync_enabled = self.is_auto_sync_enabled
+
+        filters = self.construct_attributes_filter(self.destination_field, True, is_auto_sync_enabled=is_auto_sync_enabled)
 
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
