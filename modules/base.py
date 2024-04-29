@@ -270,6 +270,7 @@ class Base:
         :return: Map of attribute value to attribute source_id
         """
         filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
+        filters.pop('active')
         existing_expense_attributes_values = ExpenseAttribute.objects.filter(**filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
