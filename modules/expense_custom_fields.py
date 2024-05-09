@@ -126,7 +126,7 @@ class ExpenseCustomField(Base):
         """
         filters = self.construct_attributes_filter(self.destination_field)
 
-        destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
+        destination_attributes_count = DestinationAttribute.objects.filter(filters).count()
 
         # If there are no destination attributes, mark the import as complete
         if destination_attributes_count == 0:
@@ -141,7 +141,7 @@ class ExpenseCustomField(Base):
             import_log.total_batches_count = 1
             import_log.save()
 
-        destination_attributes = DestinationAttribute.objects.filter(**filters)
+        destination_attributes = DestinationAttribute.objects.filter(filters)
         destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
         platform_class = self.get_platform_class(platform)
 
