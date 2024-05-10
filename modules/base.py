@@ -6,7 +6,6 @@ from datetime import (
     timedelta,
     timezone
 )
-from django.db.models import Q
 from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
     Mapping,
@@ -78,7 +77,7 @@ class Base:
         """
         return getattr(platform, self.platform_class_name)
 
-    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = [], is_auto_sync_enabled: bool = False, is_filter_required: bool = True):
+    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = [], is_auto_sync_enabled: bool = False):
         """
         Construct the attributes filter
         :param attribute_type: attribute type
@@ -90,21 +89,16 @@ class Base:
             'workspace_id': self.workspace_id
         }
 
-        if not is_auto_sync_enabled and is_filter_required:
+        if not is_auto_sync_enabled:
             filters['active'] = True
 
         if self.sync_after and self.platform_class_name != 'expense_custom_fields' and is_destination_type:
             filters['updated_at__gte'] = self.sync_after
 
-        q_filters = Q(**filters)
-
         if paginated_destination_attribute_values:
-            value_filters = Q()
-            for value in paginated_destination_attribute_values:
-                value_filters |= Q(value__iexact=value)
-            q_filters &= value_filters
+            filters['value__in__iexact'] = paginated_destination_attribute_values
 
-        return q_filters
+        return filters
 
     def remove_duplicate_attributes(self, destination_attributes: List[DestinationAttribute]):
         """
@@ -204,7 +198,7 @@ class Base:
 
         filters = self.construct_attributes_filter(self.destination_field, True, is_auto_sync_enabled=is_auto_sync_enabled)
 
-        destination_attributes_count = DestinationAttribute.objects.filter(filters).count()
+        destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
         # If there are no destination attributes, mark the import as complete
         if destination_attributes_count == 0:
@@ -248,7 +242,7 @@ class Base:
 
         for offset in range(0, destination_attributes_count, 200):
             limit = offset + 200
-            paginated_destination_attributes = DestinationAttribute.objects.filter(filters).order_by('value', 'id')[offset:limit]
+            paginated_destination_attributes = DestinationAttribute.objects.filter(**filters).order_by('value', 'id')[offset:limit]
             paginated_destination_attributes_without_duplicates = self.remove_duplicate_attributes(paginated_destination_attributes)
             is_last_batch = True if limit >= destination_attributes_count else False
 
@@ -275,8 +269,9 @@ class Base:
         :param paginated_destination_attribute_values: List of DestinationAttribute values
         :return: Map of attribute value to attribute source_id
         """
-        filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values, is_filter_required=False)
-        existing_expense_attributes_values = ExpenseAttribute.objects.filter(filters).values('value', 'source_id')
+        filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
+        filters.pop('active')
+        existing_expense_attributes_values = ExpenseAttribute.objects.filter(**filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
 

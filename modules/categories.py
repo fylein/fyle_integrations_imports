@@ -65,11 +65,7 @@ class Category(Base):
             filters &= Q(updated_at__gte=self.sync_after)
 
         if paginated_destination_attribute_values:
-            value_filters = Q()
-            for value in paginated_destination_attribute_values:
-                value_filters |= Q(value__iexact=value)
-
-            filters &= value_filters
+            filters &= Q(value__in__iexact=paginated_destination_attribute_values)
 
         account_filters = copy.deepcopy(filters)
 
