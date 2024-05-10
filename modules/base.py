@@ -96,7 +96,7 @@ class Base:
             filters['updated_at__gte'] = self.sync_after
 
         if paginated_destination_attribute_values:
-            filters['value__in__iexact'] = paginated_destination_attribute_values
+            filters['value__in'] = paginated_destination_attribute_values
 
         return filters
 
