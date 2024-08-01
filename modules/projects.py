@@ -19,7 +19,7 @@ class Project(Base):
             platform_class_name='projects',
             sync_after=sync_after,
             sdk_connection=sdk_connection,
-            destination_sync_methods=destination_sync_methods
+            destination_sync_methods=destination_sync_methods,
         )
 
     def trigger_import(self):

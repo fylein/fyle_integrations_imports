@@ -36,7 +36,8 @@ def trigger_import_via_schedule(
         is_3d_mapping: bool = False,
         charts_of_accounts: List[str] = None,
         is_custom: bool = False,
-        use_mapping_table: bool = True
+        use_mapping_table: bool = True,
+        prepend_code_to_name: bool = False
 ):
     """
     Trigger import via schedule
@@ -70,6 +71,7 @@ def trigger_import_via_schedule(
         args['is_3d_mapping'] = is_3d_mapping
         args['charts_of_accounts'] = charts_of_accounts
         args['use_mapping_table'] = use_mapping_table
+        args['prepend_code_to_name'] = prepend_code_to_name
 
     item = module_class(**args)
     item.trigger_import()

@@ -31,6 +31,7 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
             task_settings['import_categories']['charts_of_accounts'],
             False,
             task_settings['import_categories']['use_mapping_table'] if 'use_mapping_table' in task_settings['import_categories'] else True,
+            task_settings['import_categories']['prepend_code_to_name'] if 'prepend_code_to_name' in task_settings['import_categories'] else False
         )
 
     if task_settings['import_tax']:
