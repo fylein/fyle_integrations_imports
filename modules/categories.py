@@ -306,3 +306,5 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict):
         platform.categories.post_bulk(bulk_payload)
     else:
         logger.info(f"No Category to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
+
+    return bulk_payload
