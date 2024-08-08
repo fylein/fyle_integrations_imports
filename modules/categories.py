@@ -248,7 +248,7 @@ class Category(Base):
         return mapped_attribute_ids
 
 
-def disable_categories(workspace_id: int, categories_to_disable: Dict):
+def disable_categories(workspace_id: int, categories_to_disable: Dict, **kwargs):
     """
     categories_to_disable object format:
     {
