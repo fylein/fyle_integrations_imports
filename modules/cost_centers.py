@@ -18,7 +18,7 @@ class CostCenter(Base):
             platform_class_name='cost_centers',
             sync_after=sync_after,
             sdk_connection=sdk_connection,
-            destination_sync_methods=destination_sync_methods
+            destination_sync_methods=destination_sync_methods,
         )
 
     def trigger_import(self):

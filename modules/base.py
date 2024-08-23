@@ -17,6 +17,7 @@ from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions_v2
 from apps.tasks.models import Error
+from apps.mappings.helpers import prepend_code_to_name
 
 T = TypeVar('T')
 
@@ -37,6 +38,7 @@ class Base:
             sync_after:datetime,
             sdk_connection: Type[T],
             destination_sync_methods: List[str],
+            prepend_code_to_name: bool = False
     ):
         self.workspace_id = workspace_id
         self.source_field = source_field
@@ -45,6 +47,7 @@ class Base:
         self.sync_after = sync_after
         self.sdk_connection = sdk_connection
         self.destination_sync_methods = destination_sync_methods
+        self.prepend_code_to_name = prepend_code_to_name
 
     def resolve_expense_attribute_errors(self):
         """
@@ -100,7 +103,7 @@ class Base:
 
         return filters
 
-    def remove_duplicate_attributes(self, destination_attributes: List[DestinationAttribute]):
+    def remove_duplicate_attributes(self, destination_attributes: List[DestinationAttribute], prepend_code: bool = True):
         """
         Remove duplicate attributes
         :param destination_attributes: destination attributes
@@ -110,9 +113,14 @@ class Base:
         attribute_values = []
 
         for destination_attribute in destination_attributes:
-            if destination_attribute.value.lower() not in attribute_values:
+            attribute_value = destination_attribute.value
+            if prepend_code:
+                attribute_value = prepend_code_to_name(self.prepend_code_to_name, destination_attribute.value, destination_attribute.code)
+
+            if attribute_value.lower() not in attribute_values:
+                destination_attribute.value = attribute_value
                 unique_attributes.append(destination_attribute)
-                attribute_values.append(destination_attribute.value.lower())
+                attribute_values.append(attribute_value.lower())
 
         return unique_attributes
 
@@ -146,10 +154,9 @@ class Base:
         Create mappings
         """
         if not self.source_field == 'CATEGORY' or self.use_mapping_table:
-            destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes)
-            if destination_attributes_without_duplicates:
+            if posted_destination_attributes:
                 Mapping.bulk_create_mappings(
-                    destination_attributes_without_duplicates,
+                    posted_destination_attributes,
                     self.source_field,
                     self.destination_field,
                     self.workspace_id
