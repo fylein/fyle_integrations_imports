@@ -154,10 +154,9 @@ class Base:
         Create mappings
         """
         if not self.source_field == 'CATEGORY' or self.use_mapping_table:
-            destination_attributes_without_duplicates = self.remove_duplicate_attributes(posted_destination_attributes, prepend_code=False)
-            if destination_attributes_without_duplicates:
+            if posted_destination_attributes:
                 Mapping.bulk_create_mappings(
-                    destination_attributes_without_duplicates,
+                    posted_destination_attributes,
                     self.source_field,
                     self.destination_field,
                     self.workspace_id
