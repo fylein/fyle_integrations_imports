@@ -49,7 +49,14 @@ def trigger_import_via_schedule(
     import_log = ImportLog.objects.filter(workspace_id=workspace_id, attribute_type=source_field).first()
     sync_after = import_log.last_successful_run_at if import_log else None
 
-    sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
+    # This is for QBD-Direct-Integration, we don't need to pass sdk_connection_string
+    sdk_connection = ''
+    if sdk_connection_string:
+        sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
+
+    # This is for QBD-Direct-Integration, where we need to increase the import window
+    if sdk_connection == '' and sdk_connection_string == '' and sync_after:
+        sync_after = sync_after - timedelta(minutes=20)
 
     module_class = SOURCE_FIELD_CLASS_MAP[source_field] if source_field in SOURCE_FIELD_CLASS_MAP else ExpenseCustomField
 
