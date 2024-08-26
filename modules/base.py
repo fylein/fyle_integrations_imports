@@ -6,6 +6,7 @@ from datetime import (
     timedelta,
     timezone
 )
+from django.utils.module_loading import import_string
 from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
     Mapping,
@@ -16,8 +17,6 @@ from fyle_accounting_mappings.models import (
 from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions_v2
-from apps.tasks.models import Error
-from apps.mappings.helpers import prepend_code_to_name
 
 T = TypeVar('T')
 
@@ -54,6 +53,9 @@ class Base:
         Resolve Expense Attribute Errors
         :return: None
         """
+        error_model_import_string = import_string('apps.workspaces.tasks.get_error_model_path')()
+        Error = import_string(error_model_import_string)
+
         if self.source_field == "CATEGORY":
             errored_attribute_ids: List[int] = Error.objects.filter(
                 is_resolved=False,
@@ -79,6 +81,14 @@ class Base:
         :return: platform class
         """
         return getattr(platform, self.platform_class_name)
+
+    def get_code_prepended_name(self, prepend_code_in_name: bool, value: str, code: str = None) -> str:
+        """
+        Format the attribute name based on the use_code_in_naming flag
+        """
+        if prepend_code_in_name and code:
+            return "{} {}".format(code, value)
+        return value
 
     def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = [], is_auto_sync_enabled: bool = False):
         """
@@ -115,7 +125,7 @@ class Base:
         for destination_attribute in destination_attributes:
             attribute_value = destination_attribute.value
             if prepend_code:
-                attribute_value = prepend_code_to_name(self.prepend_code_to_name, destination_attribute.value, destination_attribute.code)
+                attribute_value = self.get_code_prepended_name(self.prepend_code_to_name, destination_attribute.value, destination_attribute.code)
 
             if attribute_value.lower() not in attribute_values:
                 destination_attribute.value = attribute_value
