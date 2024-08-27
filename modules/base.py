@@ -87,7 +87,7 @@ class Base:
         Format the attribute name based on the use_code_in_naming flag
         """
         if prepend_code_in_name and code:
-            return "{} {}".format(code, value)
+            return "{}: {}".format(code, value)
         return value
 
     def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = [], is_auto_sync_enabled: bool = False):
