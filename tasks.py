@@ -1,3 +1,5 @@
+import logging
+
 from django.utils.module_loading import import_string
 from datetime import datetime, timedelta, timezone
 from fyle_integrations_imports.models import ImportLog
@@ -11,8 +13,15 @@ from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute
 )
+from apps.workspaces.models import FyleCredential
+from fyle_integrations_platform_connector import PlatformConnector
+
 from typing import Type, List
 from django.db import models
+from django.db.models import F
+
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
 
 
 SOURCE_FIELD_CLASS_MAP = {
@@ -142,3 +151,60 @@ def disable_category_for_items_mapping(
             import_log.save()
     else:
         return
+
+
+def disable_or_enable_items_mapping(workspace_id: int, is_enabled: bool):
+    """
+    Disable and Enable Items Mapping in batches of 200 from the DB
+    :param workspace_id: Workspace Id
+    :param is_enabled: Boolean indicating if items should be enabled or disabled
+    """
+    destination_attribute_ids = DestinationAttribute.objects.filter(
+        workspace_id=workspace_id,
+        mapping__isnull=False,
+        attribute_type='ACCOUNT',
+        mapping__source_type='CATEGORY',
+        display_name='Item',
+        active=True
+    ).values_list('id', flat=True)
+
+    fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
+    platform = PlatformConnector(fyle_credentials)
+
+    # Function to process a batch of expense attributes
+    def process_batch(expense_attributes_batch):
+        fyle_payload = []
+
+        for expense_attribute in expense_attributes_batch:
+            category = {
+                'name': expense_attribute.value,
+                'code': expense_attribute.destination_id,
+                'is_enabled': is_enabled
+            }
+            fyle_payload.append(category)
+
+        if fyle_payload:
+            try:
+                platform.categories.post_bulk(fyle_payload)
+            except Exception as e:
+                logger.error(f"Failed to post items batch in workspace_id {workspace_id}. Payload: {fyle_payload}. Error: {str(e)}")
+
+    offset = 0
+    batch_size = 200
+
+    while True:
+        exepense_attributes = ExpenseAttribute.objects.filter(
+            attribute_type='CATEGORY',
+            mapping__destination_id__in=destination_attribute_ids,
+            active=not is_enabled
+        ).annotate(
+            destination_id=F('mapping__destination__destination_id')
+        ).order_by('id')[offset:offset + batch_size]
+
+        if not exepense_attributes:
+            break
+
+        process_batch(exepense_attributes)
+        offset += batch_size
+
+    platform.categories.sync()
