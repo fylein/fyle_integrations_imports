@@ -153,7 +153,7 @@ def disable_category_for_items_mapping(
         return
 
 
-def disable_or_enable_items_mapping(workspace_id: int, is_enabled: bool):
+def disable_items_mapping(workspace_id: int):
     """
     Disable and Enable Items Mapping in batches of 200 from the DB
     :param workspace_id: Workspace Id
@@ -165,7 +165,7 @@ def disable_or_enable_items_mapping(workspace_id: int, is_enabled: bool):
         attribute_type='ACCOUNT',
         mapping__source_type='CATEGORY',
         display_name='Item',
-        active=True
+        active=False
     ).values_list('id', flat=True)
 
     fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
@@ -179,7 +179,7 @@ def disable_or_enable_items_mapping(workspace_id: int, is_enabled: bool):
             category = {
                 'name': expense_attribute.value,
                 'code': expense_attribute.destination_id,
-                'is_enabled': is_enabled
+                'is_enabled': False
             }
             fyle_payload.append(category)
 
@@ -194,9 +194,10 @@ def disable_or_enable_items_mapping(workspace_id: int, is_enabled: bool):
 
     while True:
         exepense_attributes = ExpenseAttribute.objects.filter(
+            workspace_id=workspace_id,
             attribute_type='CATEGORY',
             mapping__destination_id__in=destination_attribute_ids,
-            active=not is_enabled
+            active=True
         ).annotate(
             destination_id=F('mapping__destination__destination_id')
         ).order_by('id')[offset:offset + batch_size]

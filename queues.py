@@ -74,9 +74,8 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
 
     if task_settings['import_items'] is not None:
         chain.append(
-            'fyle_integrations_imports.tasks.disable_or_enable_items_mapping',
-            workspace_id=workspace_id,
-            is_enabled=task_settings['import_items'],
+            'fyle_integrations_imports.tasks.disable_items_mapping',
+            workspace_id=workspace_id
         )
 
     if task_settings['mapping_settings']:
