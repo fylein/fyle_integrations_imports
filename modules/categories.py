@@ -256,7 +256,7 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
             'value': 'old_category_name',
             'updated_value': 'new_category_name',
             'code': 'old_code',
-            'update_code': 'new_code' ---- if the code is updated else same as code
+            'updated_code': 'new_code' ---- if the code is updated else same as code
         }
     }
     """
@@ -276,7 +276,7 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
     for category_map in categories_to_disable.values():
         if not use_code_in_naming and category_map['value'] == category_map['updated_value']:
             continue
-        elif use_code_in_naming and (category_map['value'] == category_map['updated_value'] and category_map['code'] == category_map['update_code']):
+        elif use_code_in_naming and (category_map['value'] == category_map['updated_value'] and category_map['code'] == category_map['updated_code']):
             continue
 
         category_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=category_map['value'], code=category_map['code'])
