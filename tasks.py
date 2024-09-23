@@ -171,24 +171,6 @@ def disable_items_mapping(workspace_id: int):
     fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
     platform = PlatformConnector(fyle_credentials)
 
-    # Function to process a batch of expense attributes
-    def process_batch(expense_attributes_batch):
-        fyle_payload = []
-
-        for expense_attribute in expense_attributes_batch:
-            category = {
-                'name': expense_attribute.value,
-                'code': expense_attribute.destination_id,
-                'is_enabled': False
-            }
-            fyle_payload.append(category)
-
-        if fyle_payload:
-            try:
-                platform.categories.post_bulk(fyle_payload)
-            except Exception as e:
-                logger.error(f"Failed to post items batch in workspace_id {workspace_id}. Payload: {fyle_payload}. Error: {str(e)}")
-
     offset = 0
     batch_size = 200
 
@@ -205,7 +187,25 @@ def disable_items_mapping(workspace_id: int):
         if not exepense_attributes:
             break
 
-        process_batch(exepense_attributes)
+        process_batch(platform, workspace_id, exepense_attributes)
         offset += batch_size
 
     platform.categories.sync()
+
+
+def process_batch(platform: PlatformConnector, workspace_id: int, expense_attributes_batch: list) -> None:
+    fyle_payload = []
+
+    for expense_attribute in expense_attributes_batch:
+        category = {
+            'name': expense_attribute.value,
+            'code': expense_attribute.destination_id,
+            'is_enabled': False
+        }
+        fyle_payload.append(category)
+
+    if fyle_payload:
+        try:
+            platform.categories.post_bulk(fyle_payload)
+        except Exception as e:
+            logger.error(f"Failed to post items batch in workspace_id {workspace_id}. Payload: {fyle_payload}. Error: {str(e)}")
