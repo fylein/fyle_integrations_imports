@@ -37,7 +37,8 @@ def trigger_import_via_schedule(
         charts_of_accounts: List[str] = None,
         is_custom: bool = False,
         use_mapping_table: bool = True,
-        prepend_code_to_name: bool = False
+        prepend_code_to_name: bool = False,
+        import_without_destination_id: bool = False
 ):
     """
     Trigger import via schedule
@@ -65,7 +66,7 @@ def trigger_import_via_schedule(
         'destination_field': destination_field,
         'sync_after': sync_after,
         'sdk_connection': sdk_connection,
-        'destination_sync_methods': destination_sync_methods,
+        'destination_sync_methods': destination_sync_methods
     }
 
     if is_custom:
@@ -73,6 +74,7 @@ def trigger_import_via_schedule(
 
     if source_field in ['PROJECT', 'CATEGORY']:
         args['is_auto_sync_enabled'] = is_auto_sync_enabled
+        args['import_without_destination_id'] = import_without_destination_id
 
     if source_field == 'CATEGORY':
         args['is_3d_mapping'] = is_3d_mapping
