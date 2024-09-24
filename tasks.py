@@ -153,19 +153,23 @@ def disable_category_for_items_mapping(
         return
 
 
-def disable_items_mapping(workspace_id: int):
+def disable_items(workspace_id: int, is_import_enabled: bool):
     """
     Disable and Enable Items Mapping in batches of 200 from the DB
     :param workspace_id: Workspace Id
     :param is_enabled: Boolean indicating if items should be enabled or disabled
     """
+    filters = {}
+    if is_import_enabled:
+        filters['active'] = False
+
     destination_attribute_ids = DestinationAttribute.objects.filter(
+        **filters,
         workspace_id=workspace_id,
         mapping__isnull=False,
         attribute_type='ACCOUNT',
         mapping__source_type='CATEGORY',
         display_name='Item',
-        active=False
     ).values_list('id', flat=True)
 
     fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
