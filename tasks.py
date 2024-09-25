@@ -157,7 +157,7 @@ def disable_category_for_items_mapping(
         return
 
 
-def disable_items(workspace_id: int, is_import_enabled: bool):
+def disable_items(workspace_id: int, is_import_enabled: bool = True):
     """
     Disable and Enable Items Mapping in batches of 200 from the DB
     :param workspace_id: Workspace Id
@@ -214,6 +214,7 @@ def process_batch(platform: PlatformConnector, workspace_id: int, expense_attrib
 
     if fyle_payload:
         try:
+            logger.info(f'Posting items batch for disabling in workspace_id {workspace_id}')
             platform.categories.post_bulk(fyle_payload)
         except Exception as e:
             logger.error(f"Failed to post items batch in workspace_id {workspace_id}. Payload: {fyle_payload}. Error: {str(e)}")
