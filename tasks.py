@@ -57,7 +57,7 @@ def trigger_import_via_schedule(
 
     import_log = ImportLog.objects.filter(workspace_id=workspace_id, attribute_type=source_field).first()
     sync_after = import_log.last_successful_run_at if import_log else None
-    sdk_connection = ''
+    sdk_connection = None
     try:
         if sdk_connection_string:
             sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
