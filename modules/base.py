@@ -196,9 +196,10 @@ class Base:
         """
         Sync destination attributes
         """
-        for destination_sync_method in self.destination_sync_methods:
-            sync = getattr(self.sdk_connection, 'sync_{}'.format(destination_sync_method))
-            sync()
+        if self.sdk_connection:
+            for destination_sync_method in self.destination_sync_methods:
+                sync = getattr(self.sdk_connection, 'sync_{}'.format(destination_sync_method))
+                sync()
 
     def construct_payload_and_import_to_fyle(
         self,
