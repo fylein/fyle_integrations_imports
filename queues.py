@@ -31,7 +31,8 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
             task_settings['import_categories']['charts_of_accounts'],
             False,
             task_settings['import_categories']['use_mapping_table'] if 'use_mapping_table' in task_settings['import_categories'] else True,
-            task_settings['import_categories']['prepend_code_to_name'] if 'prepend_code_to_name' in task_settings['import_categories'] else False
+            task_settings['import_categories']['prepend_code_to_name'] if 'prepend_code_to_name' in task_settings['import_categories'] else False,
+            import_without_destination_id=task_settings['import_categories']['import_without_destination_id'] if 'import_without_destination_id' in task_settings['import_categories'] else False
         )
 
     if task_settings['import_tax']:
@@ -85,7 +86,8 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
                     mapping_setting['is_auto_sync_enabled'],
                     False,
                     None,
-                    mapping_setting['is_custom']
+                    mapping_setting['is_custom'],
+                    import_without_destination_id=mapping_setting['import_without_destination_id'] if 'import_without_destination_id' in mapping_setting else False
                 )
 
     if chain.length() > 0:

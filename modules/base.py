@@ -37,7 +37,8 @@ class Base:
             sync_after:datetime,
             sdk_connection: Type[T],
             destination_sync_methods: List[str],
-            prepend_code_to_name: bool = False
+            prepend_code_to_name: bool = False,
+            import_without_destination_id: bool = False
     ):
         self.workspace_id = workspace_id
         self.source_field = source_field
@@ -47,6 +48,7 @@ class Base:
         self.sdk_connection = sdk_connection
         self.destination_sync_methods = destination_sync_methods
         self.prepend_code_to_name = prepend_code_to_name
+        self.import_without_destination_id = import_without_destination_id
 
     def resolve_expense_attribute_errors(self):
         """

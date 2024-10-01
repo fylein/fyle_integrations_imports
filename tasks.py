@@ -46,7 +46,8 @@ def trigger_import_via_schedule(
         charts_of_accounts: List[str] = None,
         is_custom: bool = False,
         use_mapping_table: bool = True,
-        prepend_code_to_name: bool = False
+        prepend_code_to_name: bool = False,
+        import_without_destination_id: bool = False
 ):
     """
     Trigger import via schedule
@@ -64,6 +65,10 @@ def trigger_import_via_schedule(
     except Exception as e:
         logger.info(f"Failed to get sdk connection in workspace_id {workspace_id}. Error: {str(e)}")
 
+    # This is for QBD-Direct-Integration, where we need to increase the import window
+    if sdk_connection is None and sdk_connection_string == '' and sync_after:
+        sync_after = sync_after - timedelta(minutes=20)
+
     module_class = SOURCE_FIELD_CLASS_MAP[source_field] if source_field in SOURCE_FIELD_CLASS_MAP else ExpenseCustomField
 
     args = {
@@ -71,7 +76,7 @@ def trigger_import_via_schedule(
         'destination_field': destination_field,
         'sync_after': sync_after,
         'sdk_connection': sdk_connection,
-        'destination_sync_methods': destination_sync_methods,
+        'destination_sync_methods': destination_sync_methods
     }
 
     if is_custom:
@@ -79,6 +84,7 @@ def trigger_import_via_schedule(
 
     if source_field in ['PROJECT', 'CATEGORY']:
         args['is_auto_sync_enabled'] = is_auto_sync_enabled
+        args['import_without_destination_id'] = import_without_destination_id
 
     if source_field == 'CATEGORY':
         args['is_3d_mapping'] = is_3d_mapping

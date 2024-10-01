@@ -18,7 +18,7 @@ class ExpenseCustomField(Base):
     """
     Class for ExepenseCustomField module
     """
-    def __init__(self, workspace_id: int, source_field: str, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str]):
+    def __init__(self, workspace_id: int, source_field: str, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], import_without_destination_id: bool = False):
         super().__init__(
             workspace_id=workspace_id,
             source_field=source_field,
@@ -26,7 +26,8 @@ class ExpenseCustomField(Base):
             platform_class_name='expense_custom_fields',
             sync_after=sync_after,
             sdk_connection=sdk_connection,
-            destination_sync_methods=destination_sync_methods
+            destination_sync_methods=destination_sync_methods,
+            import_without_destination_id=import_without_destination_id
         )
 
     def trigger_import(self):

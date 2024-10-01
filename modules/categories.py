@@ -37,7 +37,8 @@ class Category(Base):
             is_3d_mapping: bool,
             charts_of_accounts: List[str],
             use_mapping_table: bool = True,
-            prepend_code_to_name: bool = False
+            prepend_code_to_name: bool = False,
+            import_without_destination_id: bool = False
     ):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         self.is_3d_mapping = is_3d_mapping
@@ -52,7 +53,8 @@ class Category(Base):
             sync_after=sync_after,
             sdk_connection=sdk_connection,
             destination_sync_methods=destination_sync_methods,
-            prepend_code_to_name=prepend_code_to_name
+            prepend_code_to_name=prepend_code_to_name,
+            import_without_destination_id=import_without_destination_id
         )
 
     def trigger_import(self):
@@ -184,7 +186,7 @@ class Category(Base):
         for attribute in paginated_destination_attributes:
             category = {
                 'name': attribute.value,
-                'code': attribute.destination_id,
+                'code': attribute.destination_id if not self.import_without_destination_id else None,
                 'is_enabled': attribute.active if attribute.value != 'Unspecified' else True
             }
 

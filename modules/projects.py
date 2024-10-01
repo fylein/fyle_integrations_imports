@@ -10,7 +10,7 @@ class Project(Base):
     """
     Class for Projects module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool, import_without_destination_id: bool = False):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         super().__init__(
             workspace_id=workspace_id,
@@ -20,6 +20,7 @@ class Project(Base):
             sync_after=sync_after,
             sdk_connection=sdk_connection,
             destination_sync_methods=destination_sync_methods,
+            import_without_destination_id=import_without_destination_id
         )
 
     def trigger_import(self):
@@ -45,7 +46,7 @@ class Project(Base):
         for attribute in paginated_destination_attributes:
             project = {
                 'name': attribute.value,
-                'code': attribute.destination_id,
+                'code': attribute.destination_id if not self.import_without_destination_id else None,
                 'description': 'Project - {0}, Id - {1}'.format(
                     attribute.value,
                     attribute.destination_id
