@@ -1,3 +1,5 @@
+import logging
+
 from django.utils.module_loading import import_string
 from datetime import datetime, timedelta, timezone
 from fyle_integrations_imports.models import ImportLog
@@ -11,8 +13,15 @@ from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute
 )
+from apps.workspaces.models import FyleCredential
+from fyle_integrations_platform_connector import PlatformConnector
+
 from typing import Type, List
 from django.db import models
+from django.db.models import F
+
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
 
 
 SOURCE_FIELD_CLASS_MAP = {
@@ -49,14 +58,15 @@ def trigger_import_via_schedule(
 
     import_log = ImportLog.objects.filter(workspace_id=workspace_id, attribute_type=source_field).first()
     sync_after = import_log.last_successful_run_at if import_log else None
-
-    # This is for QBD-Direct-Integration, we don't need to pass sdk_connection_string
-    sdk_connection = ''
-    if sdk_connection_string:
-        sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
+    sdk_connection = None
+    try:
+        if sdk_connection_string:
+            sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
+    except Exception as e:
+        logger.info(f"Failed to get sdk connection in workspace_id {workspace_id}. Error: {str(e)}")
 
     # This is for QBD-Direct-Integration, where we need to increase the import window
-    if sdk_connection == '' and sdk_connection_string == '' and sync_after:
+    if sdk_connection is None and sdk_connection_string == '' and sync_after:
         sync_after = sync_after - timedelta(minutes=20)
 
     module_class = SOURCE_FIELD_CLASS_MAP[source_field] if source_field in SOURCE_FIELD_CLASS_MAP else ExpenseCustomField
@@ -151,3 +161,66 @@ def disable_category_for_items_mapping(
             import_log.save()
     else:
         return
+
+
+def disable_items(workspace_id: int, is_import_enabled: bool = True):
+    """
+    Disable and Enable Items Mapping in batches of 200 from the DB
+    :param workspace_id: Workspace Id
+    :param is_enabled: Boolean indicating if items should be enabled or disabled
+    """
+    filters = {}
+    if is_import_enabled:
+        filters['active'] = False
+
+    destination_attribute_ids = DestinationAttribute.objects.filter(
+        **filters,
+        workspace_id=workspace_id,
+        mapping__isnull=False,
+        attribute_type='ACCOUNT',
+        mapping__source_type='CATEGORY',
+        display_name='Item',
+    ).values_list('id', flat=True)
+
+    fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
+    platform = PlatformConnector(fyle_credentials)
+
+    offset = 0
+    batch_size = 200
+
+    while True:
+        exepense_attributes = ExpenseAttribute.objects.filter(
+            workspace_id=workspace_id,
+            attribute_type='CATEGORY',
+            mapping__destination_id__in=destination_attribute_ids,
+            active=True
+        ).annotate(
+            destination_id=F('mapping__destination__destination_id')
+        ).order_by('id')[offset:offset + batch_size]
+
+        if not exepense_attributes:
+            break
+
+        process_batch(platform, workspace_id, exepense_attributes)
+        offset += batch_size
+
+    platform.categories.sync()
+
+
+def process_batch(platform: PlatformConnector, workspace_id: int, expense_attributes_batch: list) -> None:
+    fyle_payload = []
+
+    for expense_attribute in expense_attributes_batch:
+        category = {
+            'name': expense_attribute.value,
+            'code': expense_attribute.destination_id,
+            'is_enabled': False
+        }
+        fyle_payload.append(category)
+
+    if fyle_payload:
+        try:
+            logger.info(f'Posting items batch for disabling in workspace_id {workspace_id}')
+            platform.categories.post_bulk(fyle_payload)
+        except Exception as e:
+            logger.error(f"Failed to post items batch in workspace_id {workspace_id}. Payload: {fyle_payload}. Error: {str(e)}")
