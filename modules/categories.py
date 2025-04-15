@@ -1,19 +1,21 @@
 import math
 import copy
 import logging
-from typing import Dict
+from typing import Dict, List, Type, TypeVar
 from datetime import datetime
+
 from django.db.models import Q
 from django.utils.module_loading import import_string
-from typing import List, Type, TypeVar
-from fyle_integrations_imports.modules.base import Base
-from fyle_integrations_imports.models import ImportLog
+
+from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute,
     CategoryMapping
 )
-from fyle_integrations_platform_connector import PlatformConnector
+
+from fyle_integrations_imports.modules.base import Base
+from fyle_integrations_imports.models import ImportLog
 from apps.workspaces.models import FyleCredential
 
 T = TypeVar('T')
@@ -272,7 +274,10 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
     configuration_model_path = import_string('apps.workspaces.tasks.get_import_configuration_model_path')()
     Configuration = import_string(configuration_model_path)
 
-    use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=['ACCOUNT'])
+    use_code_in_naming = False
+    fields = Configuration._meta.get_fields()
+    if 'import_code_fields' in [field.name for field in fields]:
+        use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=['ACCOUNT'])
 
     category_values = []
     for category_map in categories_to_disable.values():

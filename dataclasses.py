@@ -36,3 +36,4 @@ class TaskSetting:
     sdk_connection_string: str
     credentials: models.Model
     custom_properties: Optional[CustomProperties]
+    import_dependent_fields: Optional[CustomProperties]

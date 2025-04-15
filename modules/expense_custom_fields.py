@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import List, Type, TypeVar
+
+from fyle_integrations_platform_connector import PlatformConnector
+from fyle_accounting_mappings.models import DestinationAttribute, ExpenseAttribute
+
 from fyle_integrations_imports.modules.base import Base
 from fyle_integrations_imports.models import ImportLog
-from fyle_accounting_mappings.models import (
-    DestinationAttribute,
-    ExpenseAttribute
-)
+
 from apps.workspaces.models import FyleCredential
 from apps.mappings.constants import FYLE_EXPENSE_SYSTEM_FIELDS
-from fyle_integrations_platform_connector import PlatformConnector
 from apps.mappings.exceptions import handle_import_exceptions_v2
 
 T = TypeVar('T')
@@ -18,7 +18,19 @@ class ExpenseCustomField(Base):
     """
     Class for ExepenseCustomField module
     """
-    def __init__(self, workspace_id: int, source_field: str, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], import_without_destination_id: bool = False):
+    def __init__(
+        self,
+        workspace_id: int,
+        source_field: str,
+        destination_field: str,
+        sync_after: datetime,
+        sdk_connection: Type[T],
+        destination_sync_methods: List[str],
+        import_without_destination_id: bool = False,
+        prepend_code_to_name: bool = False,
+        is_auto_sync_enabled: bool = True
+    ):
+        self.is_auto_sync_enabled = is_auto_sync_enabled
         super().__init__(
             workspace_id=workspace_id,
             source_field=source_field,
@@ -27,7 +39,8 @@ class ExpenseCustomField(Base):
             sync_after=sync_after,
             sdk_connection=sdk_connection,
             destination_sync_methods=destination_sync_methods,
-            import_without_destination_id=import_without_destination_id
+            import_without_destination_id=import_without_destination_id,
+            prepend_code_to_name=prepend_code_to_name
         )
 
     def trigger_import(self):
