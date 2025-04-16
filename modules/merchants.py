@@ -114,9 +114,9 @@ def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_t
     Configuration = import_string(configuration_model_path)
 
     use_code_in_naming = False
-    fields = Configuration._meta.get_fields()
-    if 'import_code_fields' in [field.name for field in fields]:
-        use_code_in_naming = Configuration.objects.filter(workspace_id = workspace_id, import_code_fields__contains=['VENDOR']).first()
+    columns = Configuration._meta.get_fields()
+    if 'import_code_fields' in [field.name for field in columns]:
+        use_code_in_naming = Configuration.objects.filter(workspace_id = workspace_id, import_code_fields__contains=['VENDOR']).exists()
 
     merchant_values = []
     for merchant_map in merchants_to_disable.values():

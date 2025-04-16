@@ -91,7 +91,7 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting):
                     prepend_code_to_name=mapping_setting['prepend_code_to_name'] if 'prepend_code_to_name' in mapping_setting else False,
                 )
 
-    if task_settings['import_dependent_fields']:
+    if task_settings.get('import_dependent_fields'):
         chain.append(
             task_settings['import_dependent_fields']['func'],
             **task_settings['import_dependent_fields']['args']

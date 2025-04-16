@@ -275,9 +275,9 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
     Configuration = import_string(configuration_model_path)
 
     use_code_in_naming = False
-    fields = Configuration._meta.get_fields()
-    if 'import_code_fields' in [field.name for field in fields]:
-        use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=['ACCOUNT'])
+    columns = Configuration._meta.get_fields()
+    if 'import_code_fields' in [field.name for field in columns]:
+        use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=['ACCOUNT']).exists()
 
     category_values = []
     for category_map in categories_to_disable.values():

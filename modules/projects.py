@@ -114,12 +114,12 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
     Configuration = import_string(configuration_model_path)
 
     use_code_in_naming = False
-    fields = Configuration._meta.get_fields()
-    if 'import_code_fields' in [field.name for field in fields]:
+    columns = Configuration._meta.get_fields()
+    if 'import_code_fields' in [field.name for field in columns]:
         use_code_in_naming = Configuration.objects.filter(
             workspace_id = workspace_id,
             import_code_fields__contains=['JOB']
-        ).first()
+        ).exists()
 
     project_values = []
     for projects_map in projects_to_disable.values():

@@ -109,9 +109,9 @@ def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_im
     Configuration = import_string(configuration_model_path)
 
     use_code_in_naming = False
-    fields = Configuration._meta.get_fields()
-    if 'import_code_fields' in [field.name for field in fields]:
-        use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=[destination_type]).first()
+    columns = Configuration._meta.get_fields()
+    if 'import_code_fields' in [field.name for field in columns]:
+        use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=[destination_type]).exists()
 
     fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
     platform = PlatformConnector(fyle_credentials=fyle_credentials)
