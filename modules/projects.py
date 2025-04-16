@@ -1,16 +1,37 @@
+import logging
 from datetime import datetime
-from typing import List, Type, TypeVar
+from typing import Dict, List, Type, TypeVar
+
+from django.utils.module_loading import import_string
+
+from fyle_integrations_platform_connector import PlatformConnector
+from fyle_accounting_mappings.models import ExpenseAttribute, DestinationAttribute
+
+from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.modules.base import Base
-from fyle_accounting_mappings.models import DestinationAttribute
+
 
 T = TypeVar('T')
+
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
 
 
 class Project(Base):
     """
     Class for Projects module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], is_auto_sync_enabled: bool, import_without_destination_id: bool = False):
+    def __init__(
+        self,
+        workspace_id: int,
+        destination_field: str,
+        sync_after: datetime,
+        sdk_connection: Type[T],
+        destination_sync_methods: List[str],
+        is_auto_sync_enabled: bool,
+        import_without_destination_id: bool = False,
+        prepend_code_to_name: bool = False
+    ):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         super().__init__(
             workspace_id=workspace_id,
@@ -20,7 +41,8 @@ class Project(Base):
             sync_after=sync_after,
             sdk_connection=sdk_connection,
             destination_sync_methods=destination_sync_methods,
-            import_without_destination_id=import_without_destination_id
+            import_without_destination_id=import_without_destination_id,
+            prepend_code_to_name=prepend_code_to_name
         )
 
     def trigger_import(self):
@@ -63,3 +85,96 @@ class Project(Base):
                 payload.append(project)
 
         return payload
+
+
+def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_fyle_enabled: bool = False, *args, **kwargs):
+    """
+    Disable projects in Fyle when the projects are updated in Sage 300.
+    This is a callback function that is triggered from accounting_mappings.
+    projects_to_disable object format:
+    {
+        'destination_id': {
+            'value': 'old_project_name',
+            'updated_value': 'new_project_name',
+            'code': 'old_project_code',
+            'updated_code': 'new_project_code'
+        }
+    }
+
+    """
+    if not is_import_to_fyle_enabled or len(projects_to_disable) == 0:
+        logger.info("Skipping disabling projects in Fyle | WORKSPACE_ID: %s", workspace_id)
+        return
+
+    fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
+    platform = PlatformConnector(fyle_credentials=fyle_credentials)
+    platform.projects.sync()
+
+    configuration_model_path = import_string('apps.workspaces.tasks.get_import_configuration_model_path')()
+    Configuration = import_string(configuration_model_path)
+
+    use_code_in_naming = False
+    columns = Configuration._meta.get_fields()
+    if 'import_code_fields' in [field.name for field in columns]:
+        use_code_in_naming = Configuration.objects.filter(
+            workspace_id = workspace_id,
+            import_code_fields__contains=['JOB']
+        ).exists()
+
+    project_values = []
+    for projects_map in projects_to_disable.values():
+        if not use_code_in_naming and projects_map['value'] == projects_map['updated_value']:
+            continue
+        elif use_code_in_naming and (projects_map['value'] == projects_map['updated_value'] and projects_map['code'] == projects_map['updated_code']):
+            continue
+
+        project_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=projects_map['value'], code=projects_map['code'])
+        project_values.append(project_name)
+
+    filters = {
+        'workspace_id': workspace_id,
+        'attribute_type': 'PROJECT',
+        'value__in': project_values,
+        'active': True
+    }
+
+    # Expense attribute value map is as follows: {old_project_name: destination_id}
+    expense_attribute_value_map = {}
+    for destination_id, v in projects_to_disable.items():
+        project_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=v['value'], code=v['code'])
+        expense_attribute_value_map[project_name] = destination_id
+
+    expense_attributes = ExpenseAttribute.objects.filter(**filters)
+
+    bulk_payload = []
+    for expense_attribute in expense_attributes:
+        code = expense_attribute_value_map.get(expense_attribute.value, None)
+        if code:
+            payload = {
+                'name': expense_attribute.value,
+                'code': code,
+                'description': 'Sage 300 Project - {0}, Id - {1}'.format(
+                    expense_attribute.value,
+                    code
+                ),
+                'is_enabled': False,
+                'id': expense_attribute.source_id
+            }
+            bulk_payload.append(payload)
+        else:
+            logger.error(f"Project with value {expense_attribute.value} not found | WORKSPACE_ID: {workspace_id}")
+
+    if bulk_payload:
+        logger.info(f"Disabling Projects in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
+        platform.projects.post_bulk(bulk_payload)
+
+        app_name = import_string('apps.workspaces.tasks.get_app_name')()
+
+        if app_name in ['SAGE300', 'INTACCT']:
+            update_and_disable_cost_code_path = import_string('apps.workspaces.tasks.get_cost_code_update_method_path')()
+            import_string(update_and_disable_cost_code_path)(workspace_id, projects_to_disable, platform, use_code_in_naming)
+        platform.projects.sync()
+    else:
+        logger.info(f"No Projects to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
+
+    return bulk_payload
