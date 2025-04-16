@@ -32,7 +32,8 @@ class CostCenter(Base):
         sdk_connection: Type[T],
         destination_sync_methods: List[str],
         prepend_code_to_name: bool = False,
-        is_auto_sync_enabled: bool = True
+        is_auto_sync_enabled: bool = True,
+        import_without_destination_id: bool = False
     ):
         self.is_auto_sync_enabled = is_auto_sync_enabled
         super().__init__(
@@ -43,7 +44,8 @@ class CostCenter(Base):
             sync_after=sync_after,
             sdk_connection=sdk_connection,
             destination_sync_methods=destination_sync_methods,
-            prepend_code_to_name=prepend_code_to_name
+            prepend_code_to_name=prepend_code_to_name,
+            import_without_destination_id=import_without_destination_id
         )
 
     def trigger_import(self):
@@ -70,6 +72,7 @@ class CostCenter(Base):
         for attribute in paginated_destination_attributes:
             cost_center = {
                 'name': attribute.value,
+                'code': attribute.destination_id if not self.import_without_destination_id else None,
                 'is_enabled': True if attribute.active is None else attribute.active,
                 'description': 'Cost Center - {0}, Id - {1}'.format(
                     attribute.value,
