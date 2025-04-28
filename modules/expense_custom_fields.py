@@ -1,8 +1,11 @@
+import logging
 from datetime import datetime
 from typing import List, Type, TypeVar
 
+from django.utils.module_loading import import_string
+
 from fyle_integrations_platform_connector import PlatformConnector
-from fyle_accounting_mappings.models import DestinationAttribute, ExpenseAttribute
+from fyle_accounting_mappings.models import DestinationAttribute, ExpenseAttribute, MappingSetting
 
 from fyle_integrations_imports.modules.base import Base
 from fyle_integrations_imports.models import ImportLog
@@ -10,6 +13,9 @@ from fyle_integrations_imports.models import ImportLog
 from apps.workspaces.models import FyleCredential
 from apps.mappings.constants import FYLE_EXPENSE_SYSTEM_FIELDS
 from apps.mappings.exceptions import handle_import_exceptions_v2
+
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
 
 T = TypeVar('T')
 
@@ -84,20 +90,39 @@ class ExpenseCustomField(Base):
 
     def construct_fyle_expense_custom_field_payload(
         self,
-        sageintacct_attributes: List[DestinationAttribute],
+        destination_attributes: List[DestinationAttribute],
         platform: PlatformConnector,
         source_placeholder: str = None
     ):
         """
         Construct payload for expense custom fields
-        :param sageintacct_attributes: List of destination attributes
+        :param destination_attributes: List of destination attributes
         :param platform: PlatformConnector object
         :param source_placeholder: Placeholder from mapping settings
         """
         fyle_expense_custom_field_options = []
         fyle_attribute = self.source_field
 
-        [fyle_expense_custom_field_options.append(sageintacct_attribute.value) for sageintacct_attribute in sageintacct_attributes]
+        existing_fyle_attributes = ExpenseAttribute.objects.filter(attribute_type=fyle_attribute, workspace_id=self.workspace_id)
+
+        destination_attribute_value_list = [attribute.value for attribute in destination_attributes]
+        destination_attribute_inactive_list = [attribute.value for attribute in destination_attributes if not attribute.active]
+
+        existing_fyle_values = [attribute.value for attribute in existing_fyle_attributes]
+        existing_fyle_values_inactive = [attribute.value for attribute in existing_fyle_attributes if not attribute.active]
+
+        combined_values = (
+            set(destination_attribute_value_list) | set(existing_fyle_values)
+        ) - set(destination_attribute_inactive_list) - set(existing_fyle_values_inactive)
+
+        # Remove duplicates case-insensitively but keep original casing
+        seen_lower = set()
+        fyle_expense_custom_field_options = []
+        for value in combined_values:
+            value_lower = value.lower()
+            if value_lower not in seen_lower:
+                seen_lower.add(value_lower)
+                fyle_expense_custom_field_options.append(value)
 
         if fyle_attribute.lower() not in FYLE_EXPENSE_SYSTEM_FIELDS:
             existing_attribute = ExpenseAttribute.objects.filter(
@@ -138,7 +163,7 @@ class ExpenseCustomField(Base):
         """
         Construct Payload and Import to fyle in Batches
         """
-        filters = self.construct_attributes_filter(self.destination_field)
+        filters = self.construct_attributes_filter(self.destination_field, is_auto_sync_enabled=self.is_auto_sync_enabled)
 
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
@@ -185,6 +210,8 @@ class ExpenseCustomField(Base):
         fyle_credentials = FyleCredential.objects.get(workspace_id=self.workspace_id)
         platform = PlatformConnector(fyle_credentials=fyle_credentials)
 
+        self.sync_expense_attributes(platform)
+
         self.sync_destination_attributes()
 
         posted_destination_attributes = self.construct_payload_and_import_to_fyle(
@@ -196,3 +223,54 @@ class ExpenseCustomField(Base):
 
         if posted_destination_attributes:
             self.create_mappings(posted_destination_attributes)
+
+
+def disable_expense_custom_fields(workspace_id: int, attribute_type: str, attributes_to_disable: dict, *args, **kwargs) -> None:
+    """
+    Disable expense custom fields in Fyle when the expense custom fields are updated in Sage 300.
+    This is a callback function that is triggered from accounting_mappings.
+    attributes_to_disable object format:
+    {
+        'destination_id': {
+            'value': 'old_expense_custom_field_name',
+            'updated_value': 'new_expense_custom_field_name',
+            'code': 'old_expense_custom_field_code',
+            'updated_code': 'new_expense_custom_field_code'
+        }
+    }
+    """
+    configuration_model_path = import_string('apps.workspaces.tasks.get_import_configuration_model_path')()
+    Configuration = import_string(configuration_model_path)
+
+    source_field = MappingSetting.objects.get(workspace_id=workspace_id, destination_field=attribute_type).source_field
+
+    use_code_in_naming = False
+    columns = Configuration._meta.get_fields()
+    if 'import_code_fields' in [field.name for field in columns]:
+        use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=[attribute_type]).exists()
+
+    custom_field_values = []
+
+    for attribute in attributes_to_disable.values():
+        if not use_code_in_naming and attribute['value'] == attribute['updated_value']:
+            continue
+        elif use_code_in_naming and (attribute['value'] == attribute['updated_value'] and attribute['code'] == attribute['updated_code']):
+            continue
+
+        custom_field_value = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=attribute['value'], code=attribute['code'])
+        custom_field_values.append(custom_field_value)
+
+    filters = {
+        'workspace_id': workspace_id,
+        'active': True,
+        'attribute_type': source_field,
+        'value__in': custom_field_values
+    }
+
+    count = ExpenseAttribute.objects.filter(**filters).count()
+
+    if count > 0:
+        logger.info(f"Disabling {source_field} in Expense Attribute | WORKSPACE_ID: {workspace_id} | COUNT: {count}")
+        ExpenseAttribute.objects.filter(**filters).update(active=False, updated_at=datetime.now())
+    else:
+        logger.info(f"Skipping disabling {source_field} in Expense Attribute | WORKSPACE_ID: {workspace_id}")

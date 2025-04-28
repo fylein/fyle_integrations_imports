@@ -50,25 +50,35 @@ class Merchant(Base):
         """
         self.check_import_log_and_start_import()
 
-    # remove the is_auto_sync_status_allowed parameter
     def construct_fyle_payload(
         self,
         paginated_destination_attributes: List[DestinationAttribute],
-        existing_fyle_attributes_map: object
+        existing_fyle_attributes_map: List[ExpenseAttribute]
     ):
         """
         Construct Fyle payload for Merchant module
         :param paginated_destination_attributes: List of paginated destination attributes
         :param existing_fyle_attributes_map: Existing Fyle attributes map
-        :param is_auto_sync_status_allowed: Is auto sync status allowed
         :return: Fyle payload
         """
-        payload = []
+        destination_attribute_value_list = [attribute.value for attribute in paginated_destination_attributes]
+        destination_attribute_inactive_list = [attribute.value for attribute in paginated_destination_attributes if not attribute.active]
 
-        for attribute in paginated_destination_attributes:
-            # Create a new merchant if it does not exist in Fyle
-            if attribute.value.lower() not in existing_fyle_attributes_map:
-                payload.append(attribute.value)
+        existing_fyle_values = [attribute.value for attribute in existing_fyle_attributes_map]
+        existing_fyle_values_inactive = [attribute.value for attribute in existing_fyle_attributes_map if not attribute.active]
+
+        combined_values = (
+            set(destination_attribute_value_list) | set(existing_fyle_values)
+        ) - set(destination_attribute_inactive_list) - set(existing_fyle_values_inactive)
+
+        # Remove duplicates case-insensitively but keep original casing
+        seen_lower = set()
+        payload = []
+        for value in combined_values:
+            value_lower = value.lower()
+            if value_lower not in seen_lower:
+                seen_lower.add(value_lower)
+                payload.append(value)
 
         return payload
 
@@ -89,6 +99,21 @@ class Merchant(Base):
         self.construct_payload_and_import_to_fyle(platform, import_log)
 
         self.sync_expense_attributes(platform)
+
+    def get_existing_fyle_attributes(self, paginated_destination_attribute_values: List[str]):
+        """
+        Get existing Fyle attributes
+        :param paginated_destination_attribute_values: List of paginated destination attribute values
+        :return: Existing Fyle attributes
+        """
+        filters = {
+            'workspace_id': self.workspace_id,
+            'attribute_type': 'MERCHANT'
+        }
+
+        existing_fyle_attributes = ExpenseAttribute.objects.filter(**filters)
+
+        return existing_fyle_attributes
 
 
 def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_to_fyle_enabled: bool = False, *args, **kwargs):

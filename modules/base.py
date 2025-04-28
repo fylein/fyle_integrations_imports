@@ -106,10 +106,10 @@ class Base:
         if not is_auto_sync_enabled:
             filters['active'] = True
 
-        if self.sync_after and self.platform_class_name != 'expense_custom_fields' and is_destination_type:
+        if self.sync_after and self.platform_class_name not in ['expense_custom_fields', 'merchants'] and is_destination_type:
             filters['updated_at__gte'] = self.sync_after
 
-        if paginated_destination_attribute_values:
+        if self.platform_class_name not in ['expense_custom_fields', 'merchants'] and paginated_destination_attribute_values:
             filters['value__in'] = paginated_destination_attribute_values
 
         return filters
@@ -302,8 +302,10 @@ class Base:
         """
         logger.info("| Importing {} to Fyle | Content: {{WORKSPACE_ID: {} Fyle Payload count: {} is_last_batch: {}}}".format(self.destination_field, self.workspace_id, len(fyle_payload), is_last_batch))
 
-        if fyle_payload and self.platform_class_name in ['expense_custom_fields', 'merchants']:
+        if fyle_payload and self.platform_class_name in ['expense_custom_fields']:
             resource_class.post(fyle_payload)
+        elif fyle_payload and self.platform_class_name in ['merchants']:
+            resource_class.post(fyle_payload, skip_existing_merchants=True)
         elif fyle_payload:
             resource_class.post_bulk(fyle_payload)
 
