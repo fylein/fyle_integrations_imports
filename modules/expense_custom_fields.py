@@ -227,7 +227,7 @@ class ExpenseCustomField(Base):
 
 def disable_expense_custom_fields(workspace_id: int, attribute_type: str, attributes_to_disable: dict, *args, **kwargs) -> None:
     """
-    Disable expense custom fields in Fyle when the expense custom fields are updated in Sage 300.
+    Disable expense custom fields in Fyle when the expense custom fields are updated in Accounting.
     This is a callback function that is triggered from accounting_mappings.
     attributes_to_disable object format:
     {
@@ -239,10 +239,10 @@ def disable_expense_custom_fields(workspace_id: int, attribute_type: str, attrib
         }
     }
     """
-    configuration_model_path = import_string('apps.workspaces.tasks.get_import_configuration_model_path')()
+    configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
     Configuration = import_string(configuration_model_path)
 
-    source_field = MappingSetting.objects.get(workspace_id=workspace_id, destination_field=attribute_type).source_field
+    source_field = MappingSetting.objects.filter(workspace_id=workspace_id, destination_field=attribute_type).values_list('source_field', flat=True).first()
 
     use_code_in_naming = False
     columns = Configuration._meta.get_fields()

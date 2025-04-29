@@ -54,7 +54,7 @@ class Base:
         Resolve Expense Attribute Errors
         :return: None
         """
-        error_model_import_string = import_string('apps.workspaces.tasks.get_error_model_path')()
+        error_model_import_string = import_string('apps.workspaces.helpers.get_error_model_path')()
         Error = import_string(error_model_import_string)
 
         if self.source_field == "CATEGORY":

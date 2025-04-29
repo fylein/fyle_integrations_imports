@@ -89,7 +89,7 @@ class Project(Base):
 
 def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_fyle_enabled: bool = False, *args, **kwargs):
     """
-    Disable projects in Fyle when the projects are updated in Sage 300.
+    Disable projects in Fyle when the projects are updated in Accounting.
     This is a callback function that is triggered from accounting_mappings.
     projects_to_disable object format:
     {
@@ -110,7 +110,7 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
     platform = PlatformConnector(fyle_credentials=fyle_credentials)
     platform.projects.sync()
 
-    configuration_model_path = import_string('apps.workspaces.tasks.get_import_configuration_model_path')()
+    configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
     Configuration = import_string(configuration_model_path)
 
     use_code_in_naming = False
@@ -168,10 +168,10 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
         logger.info(f"Disabling Projects in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
         platform.projects.post_bulk(bulk_payload)
 
-        app_name = import_string('apps.workspaces.tasks.get_app_name')()
+        app_name = import_string('apps.workspaces.helpers.get_app_name')()
 
         if app_name in ['SAGE300', 'INTACCT']:
-            update_and_disable_cost_code_path = import_string('apps.workspaces.tasks.get_cost_code_update_method_path')()
+            update_and_disable_cost_code_path = import_string('apps.workspaces.helpers.get_cost_code_update_method_path')()
             import_string(update_and_disable_cost_code_path)(workspace_id, projects_to_disable, platform, use_code_in_naming)
         platform.projects.sync()
     else:
