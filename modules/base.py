@@ -103,7 +103,7 @@ class Base:
             'workspace_id': self.workspace_id
         }
 
-        if not is_auto_sync_enabled:
+        if (not self.sync_after and is_destination_type) or (not is_auto_sync_enabled):
             filters['active'] = True
 
         if self.sync_after and self.platform_class_name not in ['expense_custom_fields', 'merchants'] and is_destination_type:

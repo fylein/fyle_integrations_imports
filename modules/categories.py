@@ -80,6 +80,9 @@ class Category(Base):
         if paginated_destination_attribute_values:
             filters &= Q(value__in=paginated_destination_attribute_values)
 
+        if not self.sync_after and is_destination_type:
+            filters &= Q(active=True)
+
         account_filters = copy.deepcopy(filters)
 
         if attribute_type != 'CATEGORY':
