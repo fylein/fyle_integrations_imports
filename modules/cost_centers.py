@@ -81,7 +81,11 @@ class CostCenter(Base):
             }
 
             # Create a new cost-center if it does not exist in Fyle
-            if attribute.value.lower() not in existing_fyle_attributes_map:
+            if attribute.value.lower() not in existing_fyle_attributes_map and attribute.active:
+                payload.append(cost_center)
+
+            elif self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
+                payload['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(cost_center)
 
         return payload
