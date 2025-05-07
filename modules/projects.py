@@ -76,11 +76,11 @@ class Project(Base):
                 'is_enabled': True if attribute.active is None else attribute.active
             }
 
-            # Create a new project if it does not exist in Fyle
-            if attribute.value.lower() not in existing_fyle_attributes_map:
+            # Create a new project if it does not exist in Fyle and the destination_attributes is active
+            if attribute.value.lower() not in existing_fyle_attributes_map and attribute.active:
                 payload.append(project)
             # Disable the existing project in Fyle if auto-sync status is allowed and the destination_attributes is inactive
-            elif self.is_auto_sync_enabled and not attribute.active:
+            elif self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
                 project['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(project)
 
