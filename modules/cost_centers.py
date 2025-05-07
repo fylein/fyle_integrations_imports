@@ -85,7 +85,7 @@ class CostCenter(Base):
                 payload.append(cost_center)
 
             elif self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
-                payload['id'] = existing_fyle_attributes_map[attribute.value.lower()]
+                cost_center['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(cost_center)
 
         return payload
