@@ -165,6 +165,7 @@ def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_t
     if bulk_payload:
         logger.info(f"Disabling Merchants in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
         platform.merchants.post(bulk_payload, delete_merchants=True)
+        ExpenseAttribute.objects.filter(**filters).update(active=False, updated_at=datetime.now())
     else:
         logger.info(f"No Merchants to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
 
