@@ -82,6 +82,50 @@ class Merchant(Base):
 
         return payload
 
+    # construct_payload_and_import_to_fyle method is overridden
+    def construct_payload_and_import_to_fyle(
+        self,
+        platform: PlatformConnector,
+        import_log: ImportLog,
+        source_placeholder: str = None
+    ):
+        """
+        Construct Payload and Import to fyle in Batches
+        """
+        filters = self.construct_attributes_filter(self.destination_field, is_auto_sync_enabled=self.is_auto_sync_enabled)
+
+        destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
+
+        # If there are no destination attributes, mark the import as complete
+        if destination_attributes_count == 0:
+            import_log.status = 'COMPLETE'
+            import_log.last_successful_run_at = datetime.now()
+            import_log.error_log = []
+            import_log.total_batches_count = 0
+            import_log.processed_batches_count = 0
+            import_log.save()
+            return
+        else:
+            import_log.total_batches_count = 1
+            import_log.save()
+
+        destination_attributes = DestinationAttribute.objects.filter(**filters)
+        destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
+        platform_class = self.get_platform_class(platform)
+
+        fyle_payload = self.setup_fyle_payload_creation(
+            paginated_destination_attributes=destination_attributes_without_duplicates
+        )
+
+        self.post_to_fyle_and_sync(
+            fyle_payload=fyle_payload,
+            resource_class=platform_class,
+            is_last_batch=True,
+            import_log=import_log
+        )
+
+        return destination_attributes_without_duplicates
+
     # import_destination_attribute_to_fyle method is overridden
     @handle_import_exceptions_v2
     def import_destination_attribute_to_fyle(self, import_log: ImportLog):
