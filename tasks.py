@@ -106,15 +106,29 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
     :param is_enabled: Boolean indicating if items should be enabled or disabled
     """
     filters = {}
+    expense_attribute_filters = {}
+    destination_id_f_path = ''
+
+    app_name = import_string('apps.workspaces.helpers.get_app_name')()
+
+    if app_name == 'NETSUITE':
+        filters = {
+            'destination_account__isnull': False
+        }
+
+    elif app_name == 'QBO':
+        filters = {
+            'mapping__source_type': 'CATEGORY',
+            'mapping__isnull': False,
+        }
+
     if is_import_enabled:
         filters['active'] = False
 
     destination_attribute_ids = DestinationAttribute.objects.filter(
         **filters,
         workspace_id=workspace_id,
-        mapping__isnull=False,
         attribute_type='ACCOUNT',
-        mapping__source_type='CATEGORY',
         display_name='Item',
     ).values_list('id', flat=True)
 
@@ -124,14 +138,26 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
     offset = 0
     batch_size = 200
 
+    if app_name == 'NETSUITE':
+        destination_id_f_path = 'categorymapping__destination_account__id'
+        expense_attribute_filters = {
+            'categorymapping__destination_account__id__in': destination_attribute_ids
+        }
+
+    elif app_name == 'QBO':
+        destination_id_f_path = 'mapping__destination__destination_id'
+        expense_attribute_filters = {
+            'mapping__destination_id__in': destination_attribute_ids
+        }
+
     while True:
         exepense_attributes = ExpenseAttribute.objects.filter(
+            **expense_attribute_filters,
             workspace_id=workspace_id,
             attribute_type='CATEGORY',
-            mapping__destination_id__in=destination_attribute_ids,
             active=True
         ).annotate(
-            destination_id=F('mapping__destination__destination_id')
+            destination_id=F(destination_id_f_path)
         ).order_by('id')[offset:offset + batch_size]
 
         if not exepense_attributes:
@@ -148,8 +174,8 @@ def process_batch(platform: PlatformConnector, workspace_id: int, expense_attrib
 
     for expense_attribute in expense_attributes_batch:
         category = {
+            'id': expense_attribute.source_id,
             'name': expense_attribute.value,
-            'code': expense_attribute.destination_id,
             'is_enabled': False
         }
         fyle_payload.append(category)
