@@ -116,7 +116,7 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
             'destination_account__isnull': False
         }
 
-    elif app_name == 'QBO':
+    elif app_name == 'QUICKBOOKS':
         filters = {
             'mapping__source_type': 'CATEGORY',
             'mapping__isnull': False,
@@ -144,7 +144,7 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
             'categorymapping__destination_account__id__in': destination_attribute_ids
         }
 
-    elif app_name == 'QBO':
+    elif app_name == 'QUICKBOOKS':
         destination_id_f_path = 'mapping__destination__destination_id'
         expense_attribute_filters = {
             'mapping__destination_id__in': destination_attribute_ids
