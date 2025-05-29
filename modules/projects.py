@@ -153,7 +153,7 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
             payload = {
                 'name': expense_attribute.value,
                 'code': code,
-                'description': 'Sage 300 Project - {0}, Id - {1}'.format(
+                'description': 'Project - {0}, Id - {1}'.format(
                     expense_attribute.value,
                     code
                 ),
