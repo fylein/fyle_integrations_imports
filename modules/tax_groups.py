@@ -10,7 +10,7 @@ class TaxGroup(Base):
     """
     Class for TaxGroup module
     """
-    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str]):
+    def __init__(self, workspace_id: int, destination_field: str, sync_after: datetime,  sdk_connection: Type[T], destination_sync_methods: List[str], prepend_code_to_name: bool = False, is_auto_sync_enabled: bool = True):
         super().__init__(
             workspace_id=workspace_id,
             source_field='TAX_GROUP',
@@ -18,7 +18,9 @@ class TaxGroup(Base):
             platform_class_name='tax_groups',
             sync_after=sync_after,
             sdk_connection=sdk_connection,
-            destination_sync_methods=destination_sync_methods
+            prepend_code_to_name=prepend_code_to_name,
+            destination_sync_methods=destination_sync_methods,
+            is_auto_sync_enabled=is_auto_sync_enabled
         )
 
     def trigger_import(self):
