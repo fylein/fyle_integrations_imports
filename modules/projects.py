@@ -5,7 +5,7 @@ from typing import Dict, List, Type, TypeVar
 from django.utils.module_loading import import_string
 
 from fyle_integrations_platform_connector import PlatformConnector
-from fyle_accounting_mappings.models import ExpenseAttribute, DestinationAttribute
+from fyle_accounting_mappings.models import ExpenseAttribute, DestinationAttribute, MappingSetting
 
 from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.modules.base import Base
@@ -113,13 +113,18 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
     configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
     Configuration = import_string(configuration_model_path)
 
+    destination_type_list = []
+
+    project_mapping_settings = MappingSetting.objects.filter(workspace_id=workspace_id, source_field='PROJECT').first()
+    if project_mapping_settings:
+        destination_type_list.append(project_mapping_settings.destination_field)
+
     use_code_in_naming = False
-    source_field_list = ['JOB'] if app_name == 'SAGE300' else ['PROJECT']
     columns = Configuration._meta.get_fields()
     if 'import_code_fields' in [field.name for field in columns]:
         use_code_in_naming = Configuration.objects.filter(
             workspace_id = workspace_id,
-            import_code_fields__contains=source_field_list
+            import_code_fields__contains=destination_type_list
         ).exists()
 
     project_values = []
