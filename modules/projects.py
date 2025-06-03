@@ -114,11 +114,12 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
     Configuration = import_string(configuration_model_path)
 
     use_code_in_naming = False
+    source_field_list = ['JOB'] if app_name == 'SAGE300' else ['PROJECT']
     columns = Configuration._meta.get_fields()
     if 'import_code_fields' in [field.name for field in columns]:
         use_code_in_naming = Configuration.objects.filter(
             workspace_id = workspace_id,
-            import_code_fields__contains=['JOB']
+            import_code_fields__contains=source_field_list
         ).exists()
 
     project_values = []
