@@ -121,7 +121,7 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
 
     use_code_in_naming = False
     columns = Configuration._meta.get_fields()
-    if 'import_code_fields' in [field.name for field in columns]:
+    if 'import_code_fields' in [field.name for field in columns] and destination_type_list:
         use_code_in_naming = Configuration.objects.filter(
             workspace_id = workspace_id,
             import_code_fields__contains=destination_type_list
