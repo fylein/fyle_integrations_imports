@@ -267,6 +267,8 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
         logger.info("Skipping disabling categories in Fyle | WORKSPACE_ID: %s", workspace_id)
         return
 
+    app_name = import_string('apps.workspaces.helpers.get_app_name')()
+
     fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
     platform = PlatformConnector(fyle_credentials=fyle_credentials)
 
@@ -310,14 +312,13 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
         if code:
             payload = {
                 'name': expense_attribute.value,
-                'code': code,
+                'code': code if not app_name in ['QBD_CONNECTOR', 'SAGE300'] else None,
                 'is_enabled': False,
                 'id': expense_attribute.source_id
             }
+            bulk_payload.append(payload)
         else:
             logger.error(f"Category with value {expense_attribute.value} not found | WORKSPACE_ID: {workspace_id}")
-
-        bulk_payload.append(payload)
 
     if bulk_payload:
         logger.info(f"Disabling Category in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")

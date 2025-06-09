@@ -106,6 +106,8 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
         logger.info("Skipping disabling projects in Fyle | WORKSPACE_ID: %s", workspace_id)
         return
 
+    app_name = import_string('apps.workspaces.helpers.get_app_name')()
+
     fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
     platform = PlatformConnector(fyle_credentials=fyle_credentials)
     platform.projects.sync()
@@ -158,7 +160,7 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
         if code:
             payload = {
                 'name': expense_attribute.value,
-                'code': code,
+                'code': code if not app_name in ['QBD_CONNECTOR', 'SAGE300'] else None,
                 'description': 'Project - {0}, Id - {1}'.format(
                     expense_attribute.value,
                     code
@@ -173,8 +175,6 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
     if bulk_payload:
         logger.info(f"Disabling Projects in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
         platform.projects.post_bulk(bulk_payload)
-
-        app_name = import_string('apps.workspaces.helpers.get_app_name')()
 
         if app_name in ['SAGE300', 'INTACCT']:
             update_and_disable_cost_code_path = import_string('apps.workspaces.helpers.get_cost_code_update_method_path')()
