@@ -106,6 +106,8 @@ def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_im
     if not is_import_to_fyle_enabled or len(cost_centers_to_disable) == 0:
         logger.info("Skipping disabling cost centers in Fyle | WORKSPACE_ID: %s", workspace_id)
         return
+    
+    app_name = import_string('apps.workspaces.helpers.get_app_name')()
 
     destination_type = MappingSetting.objects.get(workspace_id=workspace_id, source_field='COST_CENTER').destination_field
 
@@ -150,7 +152,7 @@ def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_im
         if code:
             payload = {
                 'name': expense_attribute.value,
-                'code': code,
+                'code': code if not app_name in ['QBD_CONNECTOR', 'SAGE300'] else None,
                 'is_enabled': False,
                 'id': expense_attribute.source_id,
                 'description': 'Cost Center - {0}, Id - {1}'.format(
