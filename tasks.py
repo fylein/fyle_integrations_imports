@@ -9,7 +9,9 @@ from django.utils.module_loading import import_string
 from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
-    ExpenseAttribute
+    ExpenseAttribute,
+    CategoryMapping,
+    Mapping
 )
 
 from fyle_integrations_imports.models import ImportLog
@@ -143,12 +145,22 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
         expense_attribute_filters = {
             'categorymapping__destination_account__id__in': destination_attribute_ids
         }
+        CategoryMapping.objects.filter(
+            destination_account__id__in=destination_attribute_ids,
+            workspace_id=workspace_id,
+            source_type='CATEGORY'
+        ).delete()
 
     elif app_name in ['QUICKBOOKS', 'QBD_CONNECTOR']:
         destination_id_f_path = 'mapping__destination__destination_id'
         expense_attribute_filters = {
             'mapping__destination_id__in': destination_attribute_ids
         }
+        Mapping.objects.filter(
+            destination_id__in=destination_attribute_ids,
+            workspace_id=workspace_id,
+            source_type='CATEGORY'
+        ).delete()
 
     while True:
         exepense_attributes = ExpenseAttribute.objects.filter(
