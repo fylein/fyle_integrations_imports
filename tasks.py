@@ -101,6 +101,26 @@ def trigger_import_via_schedule(
     item.trigger_import()
 
 
+def delete_items_mapping(workspace_id: int, destination_attribute_ids: List[int], app_name: str):
+    """
+    Delete items mapping
+    :param workspace_id: Workspace Id
+    :param destination_attribute_ids: Destination Attribute Ids
+    """
+    if app_name == 'NETSUITE':
+        CategoryMapping.objects.filter(
+            destination_account__id__in=destination_attribute_ids,
+            workspace_id=workspace_id,
+            source_type='CATEGORY'
+        ).delete()
+    elif app_name in ['QUICKBOOKS', 'QBD_CONNECTOR']:
+        Mapping.objects.filter(
+            destination_id__in=destination_attribute_ids,
+            workspace_id=workspace_id,
+            source_type='CATEGORY'
+        ).delete()
+
+
 def disable_items(workspace_id: int, is_import_enabled: bool = True):
     """
     Disable and Enable Items Mapping in batches of 200 from the DB
@@ -145,22 +165,12 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
         expense_attribute_filters = {
             'categorymapping__destination_account__id__in': destination_attribute_ids
         }
-        CategoryMapping.objects.filter(
-            destination_account__id__in=destination_attribute_ids,
-            workspace_id=workspace_id,
-            source_type='CATEGORY'
-        ).delete()
 
     elif app_name in ['QUICKBOOKS', 'QBD_CONNECTOR']:
         destination_id_f_path = 'mapping__destination__destination_id'
         expense_attribute_filters = {
             'mapping__destination_id__in': destination_attribute_ids
         }
-        Mapping.objects.filter(
-            destination_id__in=destination_attribute_ids,
-            workspace_id=workspace_id,
-            source_type='CATEGORY'
-        ).delete()
 
     while True:
         exepense_attributes = ExpenseAttribute.objects.filter(
@@ -179,6 +189,7 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
         offset += batch_size
 
     platform.categories.sync()
+    delete_items_mapping(workspace_id, destination_attribute_ids, app_name)
 
 
 def process_batch(platform: PlatformConnector, workspace_id: int, expense_attributes_batch: list) -> None:
