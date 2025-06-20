@@ -110,8 +110,7 @@ def delete_items_mapping(workspace_id: int, destination_attribute_ids: List[int]
     if app_name == 'NETSUITE':
         CategoryMapping.objects.filter(
             destination_account__id__in=destination_attribute_ids,
-            workspace_id=workspace_id,
-            source_type='CATEGORY'
+            workspace_id=workspace_id
         ).delete()
     elif app_name in ['QUICKBOOKS', 'QBD_CONNECTOR']:
         Mapping.objects.filter(
