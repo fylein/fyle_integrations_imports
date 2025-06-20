@@ -188,7 +188,8 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
         offset += batch_size
 
     platform.categories.sync()
-    delete_items_mapping(workspace_id, destination_attribute_ids, app_name)
+    if not is_import_enabled:
+        delete_items_mapping(workspace_id, destination_attribute_ids, app_name)
 
 
 def process_batch(platform: PlatformConnector, workspace_id: int, expense_attributes_batch: list) -> None:
