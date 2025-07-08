@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Dict, List, Type, TypeVar
 
 from django.utils.module_loading import import_string
+from django.db.models import Q
+from django.db.models.functions import Lower
 
 from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
@@ -68,6 +70,29 @@ class CostCenter(Base):
         :return: Fyle payload
         """
         payload = []
+        case_insensitive_map = {}
+
+
+        # This is to handle the case where the value in destination attribute and Fyle doesn't have same case
+        unmatched_values = [
+            attribute.value for attribute in paginated_destination_attributes
+            if attribute.value.lower() not in existing_fyle_attributes_map
+        ]
+
+        if unmatched_values:
+            lower_unmatched_values = [value.lower() for value in unmatched_values]
+
+            expense_attributes_lower_value_map = (
+                ExpenseAttribute.objects
+                .filter(workspace_id=self.workspace_id, attribute_type='COST_CENTER')
+                .annotate(lower_value=Lower('value'))
+                .filter(lower_value__in=lower_unmatched_values)
+                .values('value', 'source_id', 'lower_value')
+            )
+
+            case_insensitive_map = {
+                ea['lower_value']: (ea['value'], ea['source_id']) for ea in expense_attributes_lower_value_map
+            }
 
         for attribute in paginated_destination_attributes:
             cost_center = {
@@ -80,12 +105,30 @@ class CostCenter(Base):
                 )
             }
 
+            lower_value = attribute.value.lower()
+            existing_source_id = existing_fyle_attributes_map.get(lower_value)
+            if existing_source_id:
+                cost_center['name'] = case_insensitive_map.get(lower_value, (attribute.value,))[0]
+                cost_center['description'] = 'Cost Center - {0}, Id - {1}'.format(
+                    cost_center['name'],
+                    existing_source_id
+                )
+            else:
+                value_map = case_insensitive_map.get(lower_value)
+                if value_map:
+                    cost_center['name'], existing_source_id = value_map
+                    cost_center['description'] = 'Cost Center - {0}, Id - {1}'.format(
+                        cost_center['name'],
+                        existing_source_id
+                    )
+
             # Create a new cost-center if it does not exist in Fyle
-            if attribute.value.lower() not in existing_fyle_attributes_map and attribute.active:
+            if (not existing_source_id or not self.sync_after) and attribute.active:
                 payload.append(cost_center)
 
-            elif self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
-                cost_center['id'] = existing_fyle_attributes_map[attribute.value.lower()]
+            # Disable the cost-center if it is not active and exists in Fyle
+            elif self.is_auto_sync_enabled and not attribute.active and existing_source_id:
+                cost_center['id'] = existing_source_id
                 payload.append(cost_center)
 
         return payload
