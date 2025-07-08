@@ -123,7 +123,7 @@ class CostCenter(Base):
                     )
 
             # Create a new cost-center if it does not exist in Fyle
-            if (not existing_source_id or not self.sync_after) and attribute.active:
+            if not existing_source_id and attribute.active:
                 payload.append(cost_center)
 
             # Disable the cost-center if it is not active and exists in Fyle
