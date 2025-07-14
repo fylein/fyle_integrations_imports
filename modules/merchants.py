@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Type, TypeVar
 
 from django.utils.module_loading import import_string
+from django.db.models import Count
 
 from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import ExpenseAttribute, DestinationAttribute
@@ -160,7 +161,7 @@ class Merchant(Base):
         return existing_fyle_attributes
 
 
-def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_to_fyle_enabled: bool = False, *args, **kwargs):
+def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
     """
     merchants_to_disable object format:
     {
@@ -196,6 +197,17 @@ def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_t
 
         merchant_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=merchant_map['value'], code=merchant_map['code'])
         merchant_values.append(merchant_name)
+
+    if not use_code_in_naming:
+        unique_values = DestinationAttribute.objects.filter(
+            workspace_id=workspace_id,
+            attribute_type=attribute_type,
+            value__in=merchant_values,
+        ).values('value').annotate(
+            value_count=Count('id')
+        ).filter(value_count=1)
+
+        merchant_values = [item['value'] for item in unique_values]
 
     filters = {
         'workspace_id': workspace_id,

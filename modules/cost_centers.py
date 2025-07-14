@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Type, TypeVar
 
 from django.utils.module_loading import import_string
-from django.db.models import Q
+from django.db.models import Count
 from django.db.models.functions import Lower
 
 from fyle_integrations_platform_connector import PlatformConnector
@@ -134,7 +134,7 @@ class CostCenter(Base):
         return payload
 
 
-def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_import_to_fyle_enabled: bool = False, *args, **kwargs):
+def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
     """
     cost_centers_to_disable object format:
     {
@@ -174,6 +174,17 @@ def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_im
 
         cost_center_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=cost_center_map['value'], code=cost_center_map['code'])
         cost_center_values.append(cost_center_name)
+
+    if not use_code_in_naming:
+        unique_values = DestinationAttribute.objects.filter(
+            workspace_id=workspace_id,
+            attribute_type=attribute_type,
+            value__in=cost_center_values,
+        ).values('value').annotate(
+            value_count=Count('id')
+        ).filter(value_count=1)
+
+        cost_center_values = [item['value'] for item in unique_values]
 
     filters = {
         'workspace_id': workspace_id,
