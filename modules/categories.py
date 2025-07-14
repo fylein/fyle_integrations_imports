@@ -251,7 +251,7 @@ class Category(Base):
         return mapped_attribute_ids
 
 
-def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
+def disable_categories(workspace_id: int, attributes_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
     """
     categories_to_disable object format:
     {
@@ -263,7 +263,7 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
         }
     }
     """
-    if not is_import_to_fyle_enabled or len(categories_to_disable) == 0:
+    if not is_import_to_fyle_enabled or len(attributes_to_disable) == 0:
         logger.info("Skipping disabling categories in Fyle | WORKSPACE_ID: %s", workspace_id)
         return
 
@@ -281,7 +281,7 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
         use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=['ACCOUNT']).exists()
 
     category_values = []
-    for category_map in categories_to_disable.values():
+    for category_map in attributes_to_disable.values():
         if not use_code_in_naming and category_map['value'] == category_map['updated_value']:
             continue
         elif use_code_in_naming and (category_map['value'] == category_map['updated_value'] and category_map['code'] == category_map['updated_code']):
@@ -309,7 +309,7 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
     }
 
     expense_attribute_value_map = {}
-    for destination_id, v in categories_to_disable.items():
+    for destination_id, v in attributes_to_disable.items():
         category_name = v['value']
         category_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=v['value'], code=v['code'])
         expense_attribute_value_map[category_name] = destination_id

@@ -88,7 +88,7 @@ class Project(Base):
         return payload
 
 
-def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
+def disable_projects(workspace_id: int, attributes_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
     """
     Disable projects in Fyle when the projects are updated in Accounting.
     This is a callback function that is triggered from accounting_mappings.
@@ -103,7 +103,7 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
     }
 
     """
-    if not is_import_to_fyle_enabled or len(projects_to_disable) == 0:
+    if not is_import_to_fyle_enabled or len(attributes_to_disable) == 0:
         logger.info("Skipping disabling projects in Fyle | WORKSPACE_ID: %s", workspace_id)
         return
 
@@ -131,7 +131,7 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
         ).exists()
 
     project_values = []
-    for projects_map in projects_to_disable.values():
+    for projects_map in attributes_to_disable.values():
         if not use_code_in_naming and projects_map['value'] == projects_map['updated_value']:
             continue
         elif use_code_in_naming and (projects_map['value'] == projects_map['updated_value'] and projects_map['code'] == projects_map['updated_code']):
@@ -160,7 +160,7 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
 
     # Expense attribute value map is as follows: {old_project_name: destination_id}
     expense_attribute_value_map = {}
-    for destination_id, v in projects_to_disable.items():
+    for destination_id, v in attributes_to_disable.items():
         project_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=v['value'], code=v['code'])
         expense_attribute_value_map[project_name] = destination_id
 
@@ -190,7 +190,7 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
 
         if app_name in ['SAGE300', 'INTACCT']:
             update_and_disable_cost_code_path = import_string('apps.workspaces.helpers.get_cost_code_update_method_path')()
-            import_string(update_and_disable_cost_code_path)(workspace_id, projects_to_disable, platform, use_code_in_naming)
+            import_string(update_and_disable_cost_code_path)(workspace_id, attributes_to_disable, platform, use_code_in_naming)
         platform.projects.sync()
     else:
         logger.info(f"No Projects to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
