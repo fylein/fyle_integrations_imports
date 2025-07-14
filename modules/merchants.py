@@ -161,7 +161,7 @@ class Merchant(Base):
         return existing_fyle_attributes
 
 
-def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
+def disable_merchants(workspace_id: int, attributes_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
     """
     merchants_to_disable object format:
     {
@@ -173,7 +173,7 @@ def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_t
         }
     }
     """
-    if not is_import_to_fyle_enabled or len(merchants_to_disable) == 0:
+    if not is_import_to_fyle_enabled or len(attributes_to_disable) == 0:
         logger.info("Skipping disabling merchants in Fyle | WORKSPACE_ID: %s", workspace_id)
         return
 
@@ -189,7 +189,7 @@ def disable_merchants(workspace_id: int, merchants_to_disable: Dict, is_import_t
         use_code_in_naming = Configuration.objects.filter(workspace_id = workspace_id, import_code_fields__contains=['VENDOR']).exists()
 
     merchant_values = []
-    for merchant_map in merchants_to_disable.values():
+    for merchant_map in attributes_to_disable.values():
         if not use_code_in_naming and merchant_map['value'] == merchant_map['updated_value']:
             continue
         elif use_code_in_naming and (merchant_map['value'] == merchant_map['updated_value'] and merchant_map['code'] == merchant_map['updated_code']):

@@ -134,7 +134,7 @@ class CostCenter(Base):
         return payload
 
 
-def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
+def disable_cost_centers(workspace_id: int, attributes_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
     """
     cost_centers_to_disable object format:
     {
@@ -146,7 +146,7 @@ def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_im
         }
     }
     """
-    if not is_import_to_fyle_enabled or len(cost_centers_to_disable) == 0:
+    if not is_import_to_fyle_enabled or len(attributes_to_disable) == 0:
         logger.info("Skipping disabling cost centers in Fyle | WORKSPACE_ID: %s", workspace_id)
         return
     
@@ -166,7 +166,7 @@ def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_im
     platform = PlatformConnector(fyle_credentials=fyle_credentials)
 
     cost_center_values = []
-    for cost_center_map in cost_centers_to_disable.values():
+    for cost_center_map in attributes_to_disable.values():
         if not use_code_in_naming and cost_center_map['value'] == cost_center_map['updated_value']:
             continue
         elif use_code_in_naming and (cost_center_map['value'] == cost_center_map['updated_value'] and cost_center_map['code'] == cost_center_map['updated_code']):
@@ -194,7 +194,7 @@ def disable_cost_centers(workspace_id: int, cost_centers_to_disable: Dict, is_im
     }
 
     expense_attribute_value_map = {}
-    for destination_id, v in cost_centers_to_disable.items():
+    for destination_id, v in attributes_to_disable.items():
         cost_center_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=v['value'], code=v['code'])
         expense_attribute_value_map[cost_center_name] = destination_id
 
