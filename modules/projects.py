@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Type, TypeVar
 
 from django.utils.module_loading import import_string
+from django.db.models import Count
 
 from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import ExpenseAttribute, DestinationAttribute, MappingSetting
@@ -87,7 +88,7 @@ class Project(Base):
         return payload
 
 
-def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_fyle_enabled: bool = False, *args, **kwargs):
+def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
     """
     Disable projects in Fyle when the projects are updated in Accounting.
     This is a callback function that is triggered from accounting_mappings.
@@ -138,6 +139,17 @@ def disable_projects(workspace_id: int, projects_to_disable: Dict, is_import_to_
 
         project_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=projects_map['value'], code=projects_map['code'])
         project_values.append(project_name)
+
+    if not use_code_in_naming:
+        unique_values = DestinationAttribute.objects.filter(
+            workspace_id=workspace_id,
+            attribute_type=attribute_type,
+            value__in=project_values,
+        ).values('value').annotate(
+            value_count=Count('id')
+        ).filter(value_count=1)
+
+        project_values = [item['value'] for item in unique_values]
 
     filters = {
         'workspace_id': workspace_id,

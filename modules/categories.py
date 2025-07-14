@@ -4,7 +4,7 @@ import logging
 from typing import Dict, List, Type, TypeVar
 from datetime import datetime
 
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.utils.module_loading import import_string
 
 from fyle_integrations_platform_connector import PlatformConnector
@@ -251,7 +251,7 @@ class Category(Base):
         return mapped_attribute_ids
 
 
-def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import_to_fyle_enabled: bool = False, *args, **kwargs):
+def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):
     """
     categories_to_disable object format:
     {
@@ -289,6 +289,17 @@ def disable_categories(workspace_id: int, categories_to_disable: Dict, is_import
 
         category_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=category_map['value'], code=category_map['code'])
         category_values.append(category_name)
+
+    if not use_code_in_naming:
+        unique_values = DestinationAttribute.objects.filter(
+            workspace_id=workspace_id,
+            attribute_type=attribute_type,
+            value__in=category_values,
+        ).values('value').annotate(
+            value_count=Count('id')
+        ).filter(value_count=1)
+
+        category_values = [item['value'] for item in unique_values]
 
     filters = {
         'workspace_id': workspace_id,
