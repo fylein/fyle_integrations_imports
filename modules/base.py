@@ -155,8 +155,8 @@ class Base:
         if posted_destination_attributes:
             self.create_mappings(posted_destination_attributes)
 
-            if self.source_field == 'CATEGORY' and self.is_3d_mapping:
-                self.create_ccc_mappings()
+        if self.source_field == 'CATEGORY' and self.is_3d_mapping:
+            self.create_ccc_mappings()
 
         self.resolve_expense_attribute_errors()
 
