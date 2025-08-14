@@ -55,6 +55,11 @@ class Base:
         :return: None
         """
         error_model_import_string = import_string('apps.workspaces.helpers.get_error_model_path')()
+        
+        # for sage file export, we don't have the error model
+        if not error_model_import_string:
+            return
+        
         Error = import_string(error_model_import_string)
 
         if self.source_field == "CATEGORY":
