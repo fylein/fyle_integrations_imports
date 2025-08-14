@@ -13,6 +13,7 @@ from fyle_accounting_mappings.models import (
     CategoryMapping
 )
 
+from apps.workspaces.helpers import get_app_name
 from apps.workspaces.models import FyleCredential
 from fyle_integrations_imports.models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions_v2
@@ -343,11 +344,14 @@ class Base:
                 'status': 'IN_PROGRESS'
             }
         )
+
+        app_name = get_app_name()
+
         time_difference = datetime.now() - timedelta(minutes=30)
         offset_aware_time_difference = time_difference.replace(tzinfo=timezone.utc)
         # If the import is already in progress or if the last successful run is within 30 minutes, don't start the import process
-        if (import_log.status == 'IN_PROGRESS' and not is_created) \
-            or (self.sync_after and (self.sync_after > offset_aware_time_difference)):
+        if app_name not in ['Sage File Export'] and ((import_log.status == 'IN_PROGRESS' and not is_created) \
+            or (self.sync_after and (self.sync_after > offset_aware_time_difference))):
             return
 
         # Update the required values since we're beginning the import process
