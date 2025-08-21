@@ -99,7 +99,7 @@ class Category(Base):
                 expense_category_filter = filters & Q(display_name='Expense Category')
                 filters = account_filters | expense_category_filter if 'accounts' in self.destination_sync_methods else expense_category_filter
 
-            if 'items' not in self.destination_sync_methods:
+            if 'items' not in self.destination_sync_methods and 'expense_categories' not in self.destination_sync_methods:
                 filters = account_filters
 
         return filters
