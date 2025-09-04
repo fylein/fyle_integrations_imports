@@ -154,7 +154,12 @@ def disable_cost_centers(workspace_id: int, attributes_to_disable: Dict, is_impo
 
     destination_type = MappingSetting.objects.get(workspace_id=workspace_id, source_field='COST_CENTER').destination_field
 
-    configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
+    configuration_model_path = None
+
+    if app_name == 'Sage File Export':
+        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')(workspace_id=workspace_id)
+    else:
+        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
     Configuration = import_string(configuration_model_path)
 
     use_code_in_naming = False
