@@ -272,7 +272,12 @@ def disable_categories(workspace_id: int, attributes_to_disable: Dict, is_import
     fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
     platform = PlatformConnector(fyle_credentials=fyle_credentials)
 
-    configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
+    configuration_model_path = None
+
+    if app_name == 'Sage File Export':
+        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')(workspace_id=workspace_id)
+    else:
+        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
     Configuration = import_string(configuration_model_path)
 
     use_code_in_naming = False

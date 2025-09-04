@@ -240,7 +240,13 @@ def disable_expense_custom_fields(workspace_id: int, attribute_type: str, attrib
         }
     }
     """
-    configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
+    app_name = import_string('apps.workspaces.helpers.get_app_name')()
+    configuration_model_path = None
+
+    if app_name == 'Sage File Export':
+        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')(workspace_id=workspace_id)
+    else:
+        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
     Configuration = import_string(configuration_model_path)
 
     source_field = MappingSetting.objects.filter(workspace_id=workspace_id, destination_field=attribute_type).values_list('source_field', flat=True).first()

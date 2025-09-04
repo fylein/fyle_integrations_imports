@@ -112,8 +112,12 @@ def disable_projects(workspace_id: int, attributes_to_disable: Dict, is_import_t
     fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
     platform = PlatformConnector(fyle_credentials=fyle_credentials)
     platform.projects.sync()
+    configuration_model_path = None
 
-    configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
+    if app_name == 'Sage File Export':
+        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')(workspace_id=workspace_id)
+    else:
+        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
     Configuration = import_string(configuration_model_path)
 
     destination_type_list = []
