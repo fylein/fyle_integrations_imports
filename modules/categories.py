@@ -5,6 +5,7 @@ from typing import Dict, List, Type, TypeVar
 from datetime import datetime
 
 from django.db.models import Q, Count
+from django.db.models.functions import Lower
 from django.utils.module_loading import import_string
 
 from fyle_integrations_platform_connector import PlatformConnector
@@ -78,7 +79,8 @@ class Category(Base):
             filters &= Q(updated_at__gte=self.sync_after)
 
         if paginated_destination_attribute_values:
-            filters &= Q(value__in=paginated_destination_attribute_values)
+            lower_paginated_attribute_values = [value.lower() for value in paginated_destination_attribute_values]
+            filters &= Q(value_lower__in=lower_paginated_attribute_values)
 
         if not self.sync_after and is_destination_type:
             filters &= Q(active=True)
@@ -170,7 +172,7 @@ class Category(Base):
         :return: Map of attribute value to attribute source_id
         """
         filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
-        existing_expense_attributes_values = ExpenseAttribute.objects.filter(filters).values('value', 'source_id')
+        existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
 

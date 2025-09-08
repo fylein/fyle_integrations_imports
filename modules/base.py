@@ -3,6 +3,7 @@ import logging
 from typing import List, Type, TypeVar
 from datetime import datetime, timedelta, timezone
 
+from django.db.models.functions import Lower
 from django.utils.module_loading import import_string
 
 from fyle_integrations_platform_connector import PlatformConnector
@@ -116,7 +117,8 @@ class Base:
             filters['updated_at__gte'] = self.sync_after
 
         if self.platform_class_name not in ['expense_custom_fields', 'merchants'] and paginated_destination_attribute_values:
-            filters['value__in'] = paginated_destination_attribute_values
+            lower_paginated_attribute_values = [value.lower() for value in paginated_destination_attribute_values]
+            filters['value_lower__in'] = lower_paginated_attribute_values
 
         return filters
 
@@ -283,7 +285,6 @@ class Base:
         """
         paginated_destination_attribute_values = [attribute.value for attribute in paginated_destination_attributes]
         existing_expense_attributes_map = self.get_existing_fyle_attributes(paginated_destination_attribute_values)
-
         return self.construct_fyle_payload(paginated_destination_attributes, existing_expense_attributes_map)
 
     def get_existing_fyle_attributes(self, paginated_destination_attribute_values: List[str]):
@@ -294,7 +295,7 @@ class Base:
         """
         filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
         filters.pop('active')
-        existing_expense_attributes_values = ExpenseAttribute.objects.filter(**filters).values('value', 'source_id')
+        existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(**filters).values('value', 'source_id')
         # This is a map of attribute name to attribute source_id
         return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
 
