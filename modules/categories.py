@@ -89,7 +89,8 @@ class Category(Base):
 
         if attribute_type != 'CATEGORY':
             if 'accounts' in self.destination_sync_methods:
-                account_filters = filters & Q(display_name='Account')
+                if attribute_type == 'ACCOUNT':
+                    account_filters = filters & Q(display_name='Account')
                 if hasattr(self, 'charts_of_accounts') and len(self.charts_of_accounts) > 0:
                     account_filters &= Q(detail__account_type__in=self.charts_of_accounts)
 
