@@ -1,0 +1,259 @@
+import logging
+from typing import Dict, Any
+
+from django.core.cache import cache
+from fyle_accounting_mappings.models import ExpenseAttribute
+from fyle_integrations_imports.models import ImportLog
+
+
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
+
+ATTRIBUTE_FIELD_MAPPING = {
+    'CATEGORY': {
+        'active_field': 'is_enabled',
+        'display_name': 'Category'
+    },
+    'PROJECT': {
+        'active_field': 'is_enabled',
+        'display_name': 'Project'
+    },
+    'COST_CENTER': {
+        'active_field': 'is_enabled',
+        'display_name': 'Cost Center'
+    },
+    'EMPLOYEE': {
+        'active_field': 'is_enabled',
+        'detail_fields': {
+            'user_id': 'user_id',
+            'employee_code': 'code',
+            'full_name': 'user.full_name',
+            'location': 'location',
+            'department': 'department.name',
+            'department_id': 'department_id',
+            'department_code': 'department.code'
+        },
+        'display_name': 'Employee'
+    },
+    'CORPORATE_CARD': {
+        'active_default': True,
+        'detail_fields': {
+            'cardholder_name': 'cardholder_name'
+        },
+        'display_name': 'Corporate Card'
+    },
+    'TAX_GROUP': {
+        'active_field': 'is_enabled',
+        'detail_fields': {
+            'tax_rate': 'percentage'
+        },
+        'display_name': 'Tax Group'
+    },
+    'EXPENSE_FIELD': {
+        'active_field': 'is_enabled',
+        'detail_fields': {
+            'custom_field_id': 'id',
+            'placeholder': 'placeholder',
+            'is_mandatory': 'is_mandatory',
+            'is_dependent': False
+        },
+        'display_name_field': 'field_name',
+        'display_name': 'Expense Field'
+    },
+    'DEPENDENT_FIELD': {
+        'active_field': 'is_enabled',
+        'detail_fields': {
+            'custom_field_id': 'id',
+            'placeholder': 'placeholder',
+            'is_mandatory': 'is_mandatory',
+            'is_dependent': True
+        },
+        'display_name_field': 'field_name',
+        'display_name': 'Dependent Field'
+    }
+}
+
+
+class WebhookAttributeProcessor:
+    """
+    Class to process webhook attribute changes
+    """
+    
+    def __init__(self, workspace_id: int):
+        self.workspace_id = workspace_id
+    
+    def process_webhook(self, webhook_body: Dict[str, Any]) -> None:
+        """
+        Process webhook for attribute changes
+        :param webhook_body: Webhook payload
+        :return: None
+        """
+        action = webhook_body.get('action')
+        attribute_type = webhook_body.get('resource')
+        data = webhook_body.get('data')
+
+        if attribute_type not in ATTRIBUTE_FIELD_MAPPING:
+            logger.info(f"Unsupported resource type {attribute_type} for workspace {self.workspace_id}")
+            return
+
+        if self._is_import_in_progress(attribute_type) and action != 'DELETED':
+            logger.info(f"Import already in progress for {attribute_type} in workspace {self.workspace_id}, skipping webhook processing")
+            return
+
+        self._process_expense_attribute(data, attribute_type, action)
+        logger.info(f"Successfully processed {action} webhook for {attribute_type} in workspace {self.workspace_id}")
+
+    def _is_import_in_progress(self, attribute_type: str) -> bool:
+        """
+        Check if import is already in progress for the given attribute type
+        Cached for 15 minutes to optimize webhook bursts
+        :param attribute_type: Attribute type to check
+        :return: True if import is in progress, False otherwise
+        """
+        cache_key = f"import_progress_{self.workspace_id}_{attribute_type}"
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            return cached_result
+
+        import_in_progress = ImportLog.objects.filter(
+            workspace_id=self.workspace_id,
+            attribute_type=attribute_type,
+            status='IN_PROGRESS'
+        ).exists()
+
+        cache.set(cache_key, import_in_progress, 900)
+        return import_in_progress
+
+    def _get_nested_value(self, data: Dict[str, Any], field_path: str) -> Any:
+        """Get value from nested dict using dot notation"""
+        try:
+            value = data
+            for field in field_path.split('.'):
+                value = value.get(field, {}) if isinstance(value, dict) else None
+                if value is None:
+                    break
+            return value
+        except Exception as e:
+            logger.error(f"Error getting nested value for {field_path}: {e}")
+            return None
+
+    def _get_attribute_data(self, data: Dict[str, Any], attribute_type: str) -> Dict[str, Any]:
+        """
+        Get value, source_id, detail, active, display_name for the attribute type
+        """
+        config = ATTRIBUTE_FIELD_MAPPING.get(attribute_type, {})
+        source_id = str(data.get('id', ''))
+
+        if attribute_type == 'CATEGORY':
+            name = data.get('name', '')
+            sub_category = data.get('sub_category', '')
+            value = f"{name} / {sub_category}" if (sub_category and name != sub_category) else name
+            
+        elif attribute_type == 'PROJECT':
+            name = data.get('name', '')
+            sub_project = data.get('sub_project', '')
+            value = f"{name} / {sub_project}" if sub_project else name
+            
+        elif attribute_type == 'EMPLOYEE':
+            value = self._get_nested_value(data, 'user.email')
+            
+        elif attribute_type == 'CORPORATE_CARD':
+            bank_name = data.get('bank_name', '')
+            last_6 = data.get('card_number', '')[-6:].replace('-', '')
+            value = f"{bank_name} - {last_6}"
+            
+        else:  # COST_CENTER, TAX_GROUP, EXPENSE_FIELD, DEPENDENT_FIELD
+            value = data.get('name', '')
+
+        active_field = config.get('active_field')
+        active = data.get(active_field, True) if active_field else config.get('active_default', True)
+
+        detail = None
+        if config.get('detail_fields'):
+            detail = {}
+            for detail_key, source_field in config['detail_fields'].items():
+                if isinstance(source_field, str):
+                    detail[detail_key] = self._get_nested_value(data, source_field)
+                else:
+                    detail[detail_key] = source_field
+
+        display_name_field = config.get('display_name_field')
+        display_name = data.get(display_name_field, config['display_name']) if display_name_field else config.get('display_name', '')
+
+        return {
+            'value': value,
+            'source_id': source_id,
+            'detail': detail,
+            'active': active,
+            'display_name': display_name,
+            'attribute_type': attribute_type
+        }
+
+    def _process_expense_attribute(self, data: Dict[str, Any], attribute_type: str, action: str) -> None:
+        """
+        Process expense attribute based on webhook action (CREATED, UPDATED, DELETED)
+        :param data: Webhook data
+        :param attribute_type: Type of attribute
+        :param action: Webhook action
+        :return: None
+        """
+        source_id = str(data.get('id'))
+        if attribute_type == 'EXPENSE_FIELD':
+            self._process_expense_field(data, action, source_id)
+            logger.debug(f"Successfully processed {action} webhook for {attribute_type} in workspace {self.workspace_id}")
+            return
+        
+        if action == 'DELETED':
+            ExpenseAttribute.objects.filter(
+                workspace_id=self.workspace_id,
+                attribute_type=attribute_type,
+                source_id=source_id
+            ).update(active=False)
+            logger.debug(f"Disabled expense attribute {attribute_type} with source_id {source_id} for workspace {self.workspace_id}")
+        else:
+            attribute_data = self._get_attribute_data(data, attribute_type)
+            ExpenseAttribute.create_or_update_expense_attribute(
+                attribute=attribute_data,
+                workspace_id=self.workspace_id
+            )
+            logger.debug(f"Processed {action} for expense attribute {attribute_type} with source_id {source_id} for workspace {self.workspace_id}")
+
+    def _process_expense_field(self, data: Dict[str, Any], action: str, source_id: str) -> None:
+        """
+        Process EXPENSE_FIELD type with special handling for options
+        :param data: Webhook data
+        :param action: Webhook action
+        :return: None
+        """
+        field_name = data.get('field_name', '')
+        field_type = data.get('type', '')
+
+        if field_type != 'SELECT':
+            logger.debug(f"Skipping non-SELECT expense field {field_name} of type {field_type} for workspace {self.workspace_id}")
+            return
+            
+        attribute_type = field_name.upper().replace(' ', '_')
+        options = data.get('options', [])
+
+        existing_attributes = ExpenseAttribute.objects.filter(
+            workspace_id=self.workspace_id,
+            attribute_type=attribute_type
+        )
+        existing_values = set(attr.value for attr in existing_attributes)
+        new_options_set = set(options)
+        for option in options:
+            attribute_data = self._get_attribute_data(data, 'EXPENSE_FIELD')
+            attribute_data['value'] = option
+            attribute_data['attribute_type'] = attribute_type
+            ExpenseAttribute.create_or_update_expense_attribute(
+                attribute=attribute_data,
+                workspace_id=self.workspace_id
+            )
+
+        attributes_to_disable = existing_values - new_options_set
+        if attributes_to_disable:
+            ExpenseAttribute.objects.filter(
+                workspace_id=self.workspace_id,
+                attribute_type=attribute_type,
+                value__in=attributes_to_disable
+            ).update(active=False)
