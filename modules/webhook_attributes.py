@@ -4,6 +4,7 @@ from typing import Dict, Any
 from django.core.cache import cache
 from fyle_accounting_mappings.models import ExpenseAttribute
 from fyle_integrations_imports.models import ImportLog
+from fyle_integrations_imports.enums import WebhookAction
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ class WebhookAttributeProcessor:
         :param webhook_body: Webhook payload
         :return: None
         """
-        action = webhook_body.get('action')
+        action = WebhookAction(webhook_body.get('action'))
         attribute_type = webhook_body.get('resource')
         data = webhook_body.get('data')
 
@@ -96,12 +97,12 @@ class WebhookAttributeProcessor:
             logger.info(f"Unsupported resource type {attribute_type} for workspace {self.workspace_id}")
             return
 
-        if self._is_import_in_progress(attribute_type) and action != 'DELETED':
+        if self._is_import_in_progress(attribute_type) and action != WebhookAction.DELETED:
             logger.info(f"Import already in progress for {attribute_type} in workspace {self.workspace_id}, skipping webhook processing")
             return
 
         self._process_expense_attribute(data, attribute_type, action)
-        logger.info(f"Successfully processed {action} webhook for {attribute_type} in workspace {self.workspace_id}")
+        logger.info(f"Successfully processed {action.value} webhook for {attribute_type} in workspace {self.workspace_id}")
 
     def _is_import_in_progress(self, attribute_type: str) -> bool:
         """
@@ -189,7 +190,7 @@ class WebhookAttributeProcessor:
             'attribute_type': attribute_type
         }
 
-    def _process_expense_attribute(self, data: Dict[str, Any], attribute_type: str, action: str) -> None:
+    def _process_expense_attribute(self, data: Dict[str, Any], attribute_type: str, action: WebhookAction) -> None:
         """
         Process expense attribute based on webhook action (CREATED, UPDATED, DELETED)
         :param data: Webhook data
@@ -199,11 +200,11 @@ class WebhookAttributeProcessor:
         """
         source_id = str(data.get('id'))
         if attribute_type == 'EXPENSE_FIELD':
-            self._process_expense_field(data, action, source_id)
-            logger.debug(f"Successfully processed {action} webhook for {attribute_type} in workspace {self.workspace_id}")
+            self._process_expense_field(data)
+            logger.debug(f"Successfully processed {action.value} webhook for {attribute_type} in workspace {self.workspace_id}")
             return
         
-        if action == 'DELETED':
+        if action == WebhookAction.DELETED:
             ExpenseAttribute.objects.filter(
                 workspace_id=self.workspace_id,
                 attribute_type=attribute_type,
@@ -216,13 +217,12 @@ class WebhookAttributeProcessor:
                 attribute=attribute_data,
                 workspace_id=self.workspace_id
             )
-            logger.debug(f"Processed {action} for expense attribute {attribute_type} with source_id {source_id} for workspace {self.workspace_id}")
+            logger.debug(f"Processed {action.value} for expense attribute {attribute_type} with source_id {source_id} for workspace {self.workspace_id}")
 
-    def _process_expense_field(self, data: Dict[str, Any], action: str, source_id: str) -> None:
+    def _process_expense_field(self, data: Dict[str, Any]) -> None:
         """
         Process EXPENSE_FIELD type with special handling for options
         :param data: Webhook data
-        :param action: Webhook action
         :return: None
         """
         field_name = data.get('field_name', '')
