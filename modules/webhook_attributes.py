@@ -94,7 +94,7 @@ class WebhookAttributeProcessor:
         data = webhook_body.get('data')
 
         if attribute_type not in ATTRIBUTE_FIELD_MAPPING:
-            logger.info(f"Unsupported resource type {attribute_type.value} for workspace {self.workspace_id}")
+            logger.error(f"Unsupported resource type {attribute_type.value} for workspace {self.workspace_id}")
             return
 
         if self._is_import_in_progress(attribute_type) and action != WebhookAttributeActionEnum.DELETED:
