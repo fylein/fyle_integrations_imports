@@ -4,7 +4,7 @@ from typing import Dict, Any
 from django.core.cache import cache
 from fyle_accounting_mappings.models import ExpenseAttribute
 from fyle_integrations_imports.models import ImportLog
-from fyle_accounting_library.enums import WebhookAttributeActionEnum, ImportLogStatusEnum, FyleAttributeTypeEnum
+from fyle_accounting_library.enums import WebhookAttributeActionEnum, ImportLogStatusEnum, FyleAttributeTypeEnum, CacheKeyEnum
 
 
 logger = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ class WebhookAttributeProcessor:
         :param attribute_type: Attribute type to check
         :return: True if import is in progress, False otherwise
         """
-        cache_key = f"import_progress_{self.workspace_id}_{attribute_type.value}"
+        cache_key = CacheKeyEnum.IMPORT_PROGRESS.value.format(workspace_id=self.workspace_id, attribute_type=attribute_type.value)
         cached_result = cache.get(cache_key)
         if cached_result is not None:
             return cached_result
