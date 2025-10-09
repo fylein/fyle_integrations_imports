@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Dict, Any
 
 from django.core.cache import cache
@@ -82,48 +83,6 @@ class WebhookAttributeProcessor:
     
     def __init__(self, workspace_id: int):
         self.workspace_id = workspace_id
-    
-    def process_webhook(self, webhook_body: Dict[str, Any]) -> None:
-        """
-        Process webhook for attribute changes
-        :param webhook_body: Webhook payload
-        :return: None
-        """
-        action = WebhookAttributeActionEnum(webhook_body.get('action'))
-        attribute_type = FyleAttributeTypeEnum(webhook_body.get('resource'))
-        data = webhook_body.get('data')
-
-        if attribute_type not in ATTRIBUTE_FIELD_MAPPING:
-            logger.error(f"Unsupported resource type {attribute_type.value} for workspace {self.workspace_id}")
-            return
-
-        if self._is_import_in_progress(attribute_type) and action != WebhookAttributeActionEnum.DELETED:
-            logger.info(f"Import already in progress for {attribute_type.value} in workspace {self.workspace_id}, skipping webhook processing")
-            return
-
-        self._process_expense_attribute(data, attribute_type, action)
-        logger.info(f"Successfully processed {action.value} webhook for {attribute_type.value} in workspace {self.workspace_id}")
-
-    def _is_import_in_progress(self, attribute_type: FyleAttributeTypeEnum) -> bool:
-        """
-        Check if import is already in progress for the given attribute type
-        Cached for 15 minutes to optimize webhook bursts
-        :param attribute_type: Attribute type to check
-        :return: True if import is in progress, False otherwise
-        """
-        cache_key = CacheKeyEnum.IMPORT_PROGRESS.value.format(workspace_id=self.workspace_id, attribute_type=attribute_type.value)
-        cached_result = cache.get(cache_key)
-        if cached_result is not None:
-            return cached_result
-
-        import_in_progress = ImportLog.objects.filter(
-            workspace_id=self.workspace_id,
-            attribute_type=attribute_type.value,
-            status=ImportLogStatusEnum.IN_PROGRESS.value
-        ).exists()
-
-        cache.set(cache_key, import_in_progress, 900)
-        return import_in_progress
 
     def _get_nested_value(self, data: Dict[str, Any], field_path: str) -> Any:
         """Get value from nested dict using dot notation"""
@@ -144,6 +103,7 @@ class WebhookAttributeProcessor:
         """
         config = ATTRIBUTE_FIELD_MAPPING.get(attribute_type, {})
         source_id = str(data.get('id', ''))
+        value = None
 
         if attribute_type == FyleAttributeTypeEnum.CATEGORY:
             name = data.get('name', '')
@@ -163,8 +123,8 @@ class WebhookAttributeProcessor:
             last_6 = data.get('card_number', '')[-6:].replace('-', '')
             value = f"{bank_name} - {last_6}"
             
-        else:  # COST_CENTER, TAX_GROUP, EXPENSE_FIELD, DEPENDENT_FIELD
-            value = data.get('name', '')
+        else:  # COST_CENTER, TAX_GROUP
+            value = data.get('name', None)
 
         active_field = config.get('active_field')
         active = data.get(active_field, True) if active_field else config.get('active_default', True)
@@ -189,35 +149,6 @@ class WebhookAttributeProcessor:
             'display_name': display_name,
             'attribute_type': attribute_type.value
         }
-
-    def _process_expense_attribute(self, data: Dict[str, Any], attribute_type: FyleAttributeTypeEnum, action: WebhookAttributeActionEnum) -> None:
-        """
-        Process expense attribute based on webhook action (CREATED, UPDATED, DELETED)
-        :param data: Webhook data
-        :param attribute_type: Type of attribute
-        :param action: Webhook action
-        :return: None
-        """
-        source_id = str(data.get('id'))
-        if attribute_type == FyleAttributeTypeEnum.EXPENSE_FIELD:
-            self._process_expense_field(data)
-            logger.debug(f"Successfully processed {action.value} webhook for {attribute_type.value} in workspace {self.workspace_id}")
-            return
-        
-        if action == WebhookAttributeActionEnum.DELETED:
-            ExpenseAttribute.objects.filter(
-                workspace_id=self.workspace_id,
-                attribute_type=attribute_type.value,
-                source_id=source_id
-            ).update(active=False)
-            logger.debug(f"Disabled expense attribute {attribute_type.value} with source_id {source_id} for workspace {self.workspace_id}")
-        else:
-            attribute_data = self._get_attribute_data(data, attribute_type)
-            ExpenseAttribute.create_or_update_expense_attribute(
-                attribute=attribute_data,
-                workspace_id=self.workspace_id
-            )
-            logger.debug(f"Processed {action.value} for expense attribute {attribute_type.value} with source_id {source_id} for workspace {self.workspace_id}")
 
     def _process_expense_field(self, data: Dict[str, Any]) -> None:
         """
@@ -255,5 +186,78 @@ class WebhookAttributeProcessor:
             ExpenseAttribute.objects.filter(
                 workspace_id=self.workspace_id,
                 attribute_type=attribute_type,
+                active=True,
                 value__in=attributes_to_disable
-            ).update(active=False)
+            ).update(active=False, updated_at=datetime.now())
+
+    def _process_expense_attribute(self, data: Dict[str, Any], attribute_type: FyleAttributeTypeEnum, action: WebhookAttributeActionEnum) -> None:
+        """
+        Process expense attribute based on webhook action (CREATED, UPDATED, DELETED)
+        :param data: Webhook data
+        :param attribute_type: Type of attribute
+        :param action: Webhook action
+        :return: None
+        """
+        source_id = str(data.get('id'))
+        if attribute_type == FyleAttributeTypeEnum.EXPENSE_FIELD:
+            self._process_expense_field(data)
+            logger.debug(f"Successfully processed {action.value} webhook for {attribute_type.value} in workspace {self.workspace_id}")
+            return
+        
+        if action == WebhookAttributeActionEnum.DELETED:
+            ExpenseAttribute.objects.filter(
+                workspace_id=self.workspace_id,
+                attribute_type=attribute_type.value,
+                active=True,
+                source_id=source_id
+            ).update(active=False, updated_at=datetime.now())
+            logger.debug(f"Disabled expense attribute {attribute_type.value} with source_id {source_id} for workspace {self.workspace_id}")
+        else:
+            attribute_data = self._get_attribute_data(data, attribute_type)
+            ExpenseAttribute.create_or_update_expense_attribute(
+                attribute=attribute_data,
+                workspace_id=self.workspace_id
+            )
+            logger.debug(f"Processed {action.value} for expense attribute {attribute_type.value} with source_id {source_id} for workspace {self.workspace_id}")
+    
+    def _is_import_in_progress(self, attribute_type: FyleAttributeTypeEnum) -> bool:
+        """
+        Check if import is already in progress for the given attribute type
+        Cached for 15 minutes to optimize webhook bursts
+        :param attribute_type: Attribute type to check
+        :return: True if import is in progress, False otherwise
+        """
+        cache_key = CacheKeyEnum.IMPORT_PROGRESS.value.format(workspace_id=self.workspace_id, attribute_type=attribute_type.value)
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            return cached_result
+
+        import_in_progress = ImportLog.objects.filter(
+            workspace_id=self.workspace_id,
+            attribute_type=attribute_type.value,
+            status=ImportLogStatusEnum.IN_PROGRESS.value
+        ).exists()
+
+        cache.set(cache_key, import_in_progress, 900)
+        return import_in_progress
+
+    def process_webhook(self, webhook_body: Dict[str, Any]) -> None:
+        """
+        Process webhook for attribute changes
+        :param webhook_body: Webhook payload
+        :return: None
+        """
+        action = WebhookAttributeActionEnum(webhook_body.get('action'))
+        attribute_type = FyleAttributeTypeEnum(webhook_body.get('resource'))
+        data = webhook_body.get('data')
+
+        if attribute_type not in ATTRIBUTE_FIELD_MAPPING:
+            logger.error(f"Unsupported resource type {attribute_type.value} for workspace {self.workspace_id}")
+            return
+
+        if self._is_import_in_progress(attribute_type) and action != WebhookAttributeActionEnum.DELETED:
+            logger.info(f"Import already in progress for {attribute_type.value} in workspace {self.workspace_id}, skipping webhook processing")
+            return
+
+        self._process_expense_attribute(data, attribute_type, action)
+        logger.info(f"Successfully processed {action.value} webhook for {attribute_type.value} in workspace {self.workspace_id}")
