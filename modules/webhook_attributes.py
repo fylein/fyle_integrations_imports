@@ -173,20 +173,17 @@ class WebhookAttributeProcessor:
         existing_values = set(attr.value for attr in existing_attributes)
         new_options_set = set(options)
 
-        attributes_to_create_or_update = []
-        for option in options:
-            attribute_data = self._get_attribute_data(data, FyleAttributeTypeEnum.EXPENSE_FIELD)
-            attribute_data['value'] = option
-            attribute_data['attribute_type'] = attribute_type
-            attributes_to_create_or_update.append(attribute_data)
-
-        if attributes_to_create_or_update:
-            ExpenseAttribute.bulk_create_or_update_expense_attributes(
-                attributes=attributes_to_create_or_update,
-                attribute_type=attribute_type,
-                workspace_id=self.workspace_id,
-                update=True
-            )
+        new_options = new_options_set - existing_values
+        if new_options:
+            attributes_to_create = []
+            for option in new_options:
+                attribute_data = self._get_attribute_data(data, FyleAttributeTypeEnum.EXPENSE_FIELD)
+                attribute_data['value'] = option
+                attribute_data['attribute_type'] = attribute_type
+                attribute_data['workspace_id'] = self.workspace_id
+                attributes_to_create.append(ExpenseAttribute(**attribute_data))
+            
+            ExpenseAttribute.objects.bulk_create(attributes_to_create, batch_size=50)
 
         attributes_to_disable = existing_values - new_options_set
         if attributes_to_disable:
