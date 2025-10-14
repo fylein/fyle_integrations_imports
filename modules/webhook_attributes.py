@@ -5,7 +5,7 @@ from typing import Dict, Any
 from django.core.cache import cache
 from fyle_accounting_mappings.models import ExpenseAttribute
 from fyle_integrations_imports.models import ImportLog
-from fyle_accounting_library.enums import WebhookAttributeActionEnum, ImportLogStatusEnum, FyleAttributeTypeEnum, CacheKeyEnum
+from fyle_accounting_library.fyle_platform.enums import WebhookAttributeActionEnum, ImportLogStatusEnum, FyleAttributeTypeEnum, CacheKeyEnum
 
 
 logger = logging.getLogger(__name__)

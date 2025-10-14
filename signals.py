@@ -2,7 +2,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.cache import cache
 
-from fyle_accounting_library.enums import ImportLogStatusEnum, CacheKeyEnum
+from fyle_accounting_library.fyle_platform.enums import ImportLogStatusEnum, CacheKeyEnum
 from .models import ImportLog
 
 
