@@ -231,7 +231,7 @@ class WebhookAttributeProcessor:
         :param attribute_type: Attribute type to check
         :return: True if import is in progress, False otherwise
         """
-        cache_key = CacheKeyEnum.IMPORT_PROGRESS.value.format(workspace_id=self.workspace_id, attribute_type=attribute_type.value)
+        cache_key = CacheKeyEnum.IMPORT_LOG_IN_PROGRESS.value.format(workspace_id=self.workspace_id, attribute_type=attribute_type.value)
         cached_result = cache.get(cache_key)
         if cached_result is not None:
             return cached_result
