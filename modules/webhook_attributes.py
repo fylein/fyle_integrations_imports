@@ -203,6 +203,10 @@ class WebhookAttributeProcessor:
         :return: None
         """
         source_id = str(data.get('id'))
+        if attribute_type == FyleAttributeTypeEnum.EMPLOYEE and data.get('has_accepted_invite') == False:
+            logger.info(f"Employee {data.get('user', {}).get('email')} has not accepted invite, skipping webhook processing")
+            return
+
         if attribute_type == FyleAttributeTypeEnum.EXPENSE_FIELD:
             self._process_expense_field(data)
             logger.debug(f"Successfully processed {action.value} webhook for {attribute_type.value} in workspace {self.workspace_id}")
