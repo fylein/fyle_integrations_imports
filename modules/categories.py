@@ -385,7 +385,6 @@ def disable_system_categories_in_fyle(workspace_id: int) -> None:
         for expense_attribute in expense_attributes:
             payload = {
                 'name': expense_attribute.value,
-                'code': expense_attribute.code if not app_name in ['QBD_CONNECTOR', 'SAGE300'] else None,
                 'is_enabled': False,
                 'id': expense_attribute.source_id
             }
