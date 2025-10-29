@@ -379,7 +379,7 @@ def disable_system_categories_in_fyle(workspace_id: int) -> None:
 
     try:
         app_name = import_string('apps.workspaces.helpers.get_app_name')()
-        expense_attributes = ExpenseAttribute.objects.filter(workspace_id=workspace_id, attribute_type='CATEGORY', value__in=SYTEM_CATEGORIES)
+        expense_attributes = ExpenseAttribute.objects.filter(workspace_id=workspace_id, attribute_type='CATEGORY', active=True, value__in=SYTEM_CATEGORIES)
         
         bulk_payload = []
         for expense_attribute in expense_attributes:
