@@ -346,3 +346,59 @@ def disable_categories(workspace_id: int, attributes_to_disable: Dict, is_import
         logger.info(f"No Category to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
 
     return bulk_payload
+
+
+def disable_system_categories_in_fyle(workspace_id: int) -> None:
+    """
+    Disable system categories in Fyle
+    :param workspace_id: Workspace ID
+    :return: None
+    """
+    SYTEM_CATEGORIES = [
+        'Airlines',
+        'Bus',
+        'Entertainment'
+        'Food'
+        'Fuel'
+        'Groceries'
+        'Lodging'
+        'Mail'
+        'Mileage'
+        'Office Supplies'
+        'Others'
+        'Parking'
+        'Per Diem'
+        'Professional Services'
+        'Rental'
+        'Software'
+        'Taxi'
+        'Train'
+        'Unspecified'
+        'Utility'
+    ]
+
+    try:
+        app_name = import_string('apps.workspaces.helpers.get_app_name')()
+        expense_attributes = ExpenseAttribute.objects.filter(workspace_id=workspace_id, attribute_type='CATEGORY', value__in=SYTEM_CATEGORIES)
+        
+        bulk_payload = []
+        for expense_attribute in expense_attributes:
+            payload = {
+                'name': expense_attribute.value,
+                'code': expense_attribute.code if not app_name in ['QBD_CONNECTOR', 'SAGE300'] else None,
+                'is_enabled': False,
+                'id': expense_attribute.source_id
+            }
+            bulk_payload.append(payload)
+
+        if bulk_payload:
+            logger.info(f"Disabling System Category in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
+            fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
+            platform = PlatformConnector(fyle_credentials=fyle_credentials)
+            platform.categories.post_bulk(bulk_payload)
+        else:
+            logger.info(f"No System Category to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
+
+    except Exception as e:
+        logger.error(f"Error disabling system categories in Fyle for workspace {workspace_id}: {e}")
+        raise e
