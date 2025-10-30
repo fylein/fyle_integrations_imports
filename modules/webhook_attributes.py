@@ -12,7 +12,7 @@ from apps.workspaces.helpers import get_app_name
 logger = logging.getLogger(__name__)
 logger.level = logging.INFO
 
-DEPENDENT_FIELD_SUPPORTED_CONNECTORS = ['INTACCT']
+DEPENDENT_FIELD_SUPPORTED_APPS = ['INTACCT']
 
 ATTRIBUTE_FIELD_MAPPING = {
     FyleAttributeTypeEnum.CATEGORY: {
@@ -350,9 +350,9 @@ class WebhookAttributeProcessor:
             field_type = data.get('type', '')
             if field_type == 'DEPENDENT_SELECT':
                 app_name = get_app_name()
-                if app_name not in DEPENDENT_FIELD_SUPPORTED_CONNECTORS:
+                if app_name not in DEPENDENT_FIELD_SUPPORTED_APPS:
                     logger.debug(
-                        f"Connector {app_name} does not support dependent field webhook processing for workspace {self.workspace_id}"
+                        f"App {app_name} does not support dependent field webhook processing for workspace {self.workspace_id}"
                     )
                     return
                 attribute_type = FyleAttributeTypeEnum.DEPENDENT_FIELD
