@@ -6,10 +6,13 @@ from django.core.cache import cache
 from fyle_accounting_mappings.models import ExpenseAttribute
 from fyle_integrations_imports.models import ImportLog
 from fyle_accounting_library.fyle_platform.enums import WebhookAttributeActionEnum, ImportLogStatusEnum, FyleAttributeTypeEnum, CacheKeyEnum
+from apps.workspaces.helpers import get_app_name
 
 
 logger = logging.getLogger(__name__)
 logger.level = logging.INFO
+
+DEPENDENT_FIELD_SUPPORTED_CONNECTORS = ['INTACCT']
 
 ATTRIBUTE_FIELD_MAPPING = {
     FyleAttributeTypeEnum.CATEGORY: {
@@ -194,6 +197,86 @@ class WebhookAttributeProcessor:
                 value__in=attributes_to_disable
             ).update(active=False, updated_at=datetime.now())
 
+    def _process_dependent_field(self, data: Dict[str, Any]) -> None:
+        """
+        Process DEPENDENT_SELECT type fields
+        Only process if options are present
+        :param data: Webhook data
+        :return: None
+        """
+        field_name = data.get('field_name', '')
+        field_id = data.get('id')
+        options = data.get('options', [])
+        is_enabled = data.get('is_enabled', False)
+
+        if not options:
+            logger.debug(
+                f"Skipping dependent field {field_name} (ID: {field_id}) "
+                f"for workspace {self.workspace_id} - no options present"
+            )
+            return
+
+        attribute_type = field_name.upper().replace(' ', '_')
+
+        logger.debug(
+            f"Processing dependent field {field_name} (ID: {field_id}) "
+            f"as attribute type {attribute_type} for workspace {self.workspace_id}"
+        )
+
+        if not is_enabled:
+            disabled_count = ExpenseAttribute.objects.filter(
+                workspace_id=self.workspace_id,
+                attribute_type=attribute_type,
+                active=True
+            ).update(active=False, updated_at=datetime.now())
+
+            logger.debug(
+                f"Disabled {disabled_count} options for dependent field {field_name} "
+                f"in workspace {self.workspace_id}"
+            )
+        else:
+            existing_attributes = ExpenseAttribute.objects.filter(
+                workspace_id=self.workspace_id,
+                attribute_type=attribute_type
+            )
+            existing_values = set(attr.value for attr in existing_attributes)
+            new_options_set = set(options)
+
+            new_options = new_options_set - existing_values
+            if new_options:
+                attributes_to_create = []
+                for option in new_options:
+                    attribute_data = self._get_attribute_data(data, FyleAttributeTypeEnum.DEPENDENT_FIELD)
+                    attribute_data['value'] = option
+                    attribute_data['attribute_type'] = attribute_type
+                    attribute_data['workspace_id'] = self.workspace_id
+                    attributes_to_create.append(ExpenseAttribute(**attribute_data))
+
+                ExpenseAttribute.objects.bulk_create(attributes_to_create, batch_size=50)
+                logger.debug(
+                    f"Created {len(new_options)} new options for dependent field {field_name} "
+                    f"in workspace {self.workspace_id}"
+                )
+
+            options_to_disable = existing_values - new_options_set
+            if options_to_disable:
+                disabled_count = ExpenseAttribute.objects.filter(
+                    workspace_id=self.workspace_id,
+                    attribute_type=attribute_type,
+                    active=True,
+                    value__in=options_to_disable
+                ).update(active=False, updated_at=datetime.now())
+
+                logger.debug(
+                    f"Disabled {disabled_count} options for dependent field {field_name} "
+                    f"in workspace {self.workspace_id}"
+                )
+
+        logger.info(
+            f"Successfully processed dependent field {field_name} (ID: {field_id}) "
+            f"for workspace {self.workspace_id}"
+        )
+
     def _process_expense_attribute(self, data: Dict[str, Any], attribute_type: FyleAttributeTypeEnum, action: WebhookAttributeActionEnum) -> None:
         """
         Process expense attribute based on webhook action (CREATED, UPDATED, DELETED)
@@ -209,6 +292,10 @@ class WebhookAttributeProcessor:
 
         if attribute_type == FyleAttributeTypeEnum.EXPENSE_FIELD:
             self._process_expense_field(data)
+            logger.debug(f"Successfully processed {action.value} webhook for {attribute_type.value} in workspace {self.workspace_id}")
+            return
+        elif attribute_type == FyleAttributeTypeEnum.DEPENDENT_FIELD:
+            self._process_dependent_field(data)
             logger.debug(f"Successfully processed {action.value} webhook for {attribute_type.value} in workspace {self.workspace_id}")
             return
         
@@ -258,6 +345,17 @@ class WebhookAttributeProcessor:
         action = WebhookAttributeActionEnum(webhook_body.get('action'))
         attribute_type = FyleAttributeTypeEnum(webhook_body.get('resource'))
         data = webhook_body.get('data')
+
+        if attribute_type == FyleAttributeTypeEnum.EXPENSE_FIELD:
+            field_type = data.get('type', '')
+            if field_type == 'DEPENDENT_SELECT':
+                app_name = get_app_name()
+                if app_name not in DEPENDENT_FIELD_SUPPORTED_CONNECTORS:
+                    logger.debug(
+                        f"Connector {app_name} does not support dependent field webhook processing for workspace {self.workspace_id}"
+                    )
+                    return
+                attribute_type = FyleAttributeTypeEnum.DEPENDENT_FIELD
 
         if attribute_type not in ATTRIBUTE_FIELD_MAPPING:
             logger.error(f"Unsupported resource type {attribute_type.value} for workspace {self.workspace_id}")
