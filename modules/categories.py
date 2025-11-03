@@ -354,32 +354,32 @@ def disable_system_categories_in_fyle(workspace_id: int) -> None:
     :param workspace_id: Workspace ID
     :return: None
     """
-    SYTEM_CATEGORIES = [
+    SYSTEM_CATEGORIES = [
         'Airlines',
         'Bus',
-        'Entertainment'
-        'Food'
-        'Fuel'
-        'Groceries'
-        'Lodging'
-        'Mail'
-        'Mileage'
-        'Office Supplies'
-        'Others'
-        'Parking'
-        'Per Diem'
-        'Professional Services'
-        'Rental'
-        'Software'
-        'Taxi'
-        'Train'
-        'Unspecified'
+        'Entertainment',
+        'Food',
+        'Fuel',
+        'Groceries',
+        'Lodging',
+        'Mail',
+        'Mileage',
+        'Office Supplies',
+        'Others',
+        'Parking',
+        'Per Diem',
+        'Professional Services',
+        'Rental',
+        'Software',
+        'Taxi',
+        'Train',
+        'Unspecified',
         'Utility'
     ]
 
     try:
         app_name = import_string('apps.workspaces.helpers.get_app_name')()
-        expense_attributes = ExpenseAttribute.objects.filter(workspace_id=workspace_id, attribute_type='CATEGORY', active=True, value__in=SYTEM_CATEGORIES)
+        expense_attributes = ExpenseAttribute.objects.filter(workspace_id=workspace_id, attribute_type='CATEGORY', active=True, value__in=SYSTEM_CATEGORIES)
         
         bulk_payload = []
         for expense_attribute in expense_attributes:
