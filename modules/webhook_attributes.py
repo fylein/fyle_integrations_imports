@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 from django.core.cache import cache
+from django.utils.module_loading import import_string
 from fyle_accounting_mappings.models import ExpenseAttribute
 from fyle_integrations_imports.models import ImportLog
 from fyle_accounting_library.fyle_platform.enums import WebhookAttributeActionEnum, ImportLogStatusEnum, FyleAttributeTypeEnum, CacheKeyEnum
@@ -227,6 +228,14 @@ class WebhookAttributeProcessor:
                 workspace_id=self.workspace_id
             )
             logger.debug(f"Processed {action.value} for expense attribute {attribute_type.value} with source_id {source_id} for workspace {self.workspace_id}")
+            
+            # Patch integration settings if corporate card is created
+            if attribute_type == FyleAttributeTypeEnum.CORPORATE_CARD and action == WebhookAttributeActionEnum.CREATED:
+                try:
+                    patch_function = import_string('apps.mappings.helpers.patch_corporate_card_integration_settings')
+                    patch_function(workspace_id=self.workspace_id)
+                except Exception as e:
+                    logger.error(f"Error patching integration settings for corporate card in workspace {self.workspace_id}: {str(e)}", exc_info=True)
     
     def _is_import_in_progress(self, attribute_type: FyleAttributeTypeEnum) -> bool:
         """
