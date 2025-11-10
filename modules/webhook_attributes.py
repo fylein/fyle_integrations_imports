@@ -229,13 +229,20 @@ class WebhookAttributeProcessor:
             )
             logger.debug(f"Processed {action.value} for expense attribute {attribute_type.value} with source_id {source_id} for workspace {self.workspace_id}")
             
-            # Patch integration settings if corporate card is created
-            if attribute_type == FyleAttributeTypeEnum.CORPORATE_CARD and action == WebhookAttributeActionEnum.CREATED:
-                try:
-                    patch_function = import_string('apps.mappings.helpers.patch_corporate_card_integration_settings')
-                    patch_function(workspace_id=self.workspace_id)
-                except Exception as e:
-                    logger.error(f"Error patching integration settings for corporate card in workspace {self.workspace_id}: {str(e)}", exc_info=True)
+            # Patch integration settings if corporate card + employee (only for Sage File Export) is created
+            if action == WebhookAttributeActionEnum.CREATED and attribute_type in [FyleAttributeTypeEnum.CORPORATE_CARD, FyleAttributeTypeEnum.EMPLOYEE]:
+                should_patch = True
+                if attribute_type == FyleAttributeTypeEnum.EMPLOYEE:
+                    get_app_name = import_string('apps.workspaces.helpers.get_app_name')
+                    if get_app_name() != 'Sage File Export':
+                        should_patch = False
+                
+                if should_patch:
+                    try:
+                        patch_function = import_string('apps.mappings.helpers.patch_corporate_card_integration_settings')
+                        patch_function(workspace_id=self.workspace_id)
+                    except Exception as e:
+                        logger.error(f"Error patching integration settings for {attribute_type.value} in workspace {self.workspace_id}: {str(e)}", exc_info=True)
     
     def _is_import_in_progress(self, attribute_type: FyleAttributeTypeEnum) -> bool:
         """
