@@ -229,6 +229,7 @@ class WebhookAttributeProcessor:
             )
             logger.debug(f"Processed {action.value} for expense attribute {attribute_type.value} with source_id {source_id} for workspace {self.workspace_id}")
             
+            # Patch integration settings if corporate card + employee (only for Sage File Export) is created
             if action == WebhookAttributeActionEnum.CREATED and attribute_type in [FyleAttributeTypeEnum.CORPORATE_CARD, FyleAttributeTypeEnum.EMPLOYEE]:
                 should_patch = True
                 if attribute_type == FyleAttributeTypeEnum.EMPLOYEE:
