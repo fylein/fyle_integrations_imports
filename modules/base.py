@@ -214,10 +214,10 @@ class Base:
 
         if fyle_webhook_sync_enabled and fyle_sync_timestamp:
             sync_after = get_resource_timestamp(fyle_sync_timestamp, self.platform_class_name)
-            logger.debug(f'Syncing {self.platform_class_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
+            logger.info(f'Syncing {self.platform_class_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
         else:
             sync_after = self.sync_after if self.sync_after else None
-            logger.debug(f'Syncing {self.platform_class_name} for workspace_id {self.workspace_id} with full sync mode')
+            logger.info(f'Syncing {self.platform_class_name} for workspace_id {self.workspace_id} with full sync mode')
 
         platform_class.sync(sync_after=sync_after)
 
