@@ -11,11 +11,12 @@ from fyle_accounting_mappings.models import (
     Mapping,
     DestinationAttribute,
     ExpenseAttribute,
+    FyleSyncTimestamp,
     CategoryMapping
 )
 
 from apps.workspaces.helpers import get_app_name
-from apps.workspaces.models import FyleCredential
+from apps.workspaces.models import FeatureConfig, FyleCredential
 from fyle_integrations_imports.models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions_v2
 
@@ -23,6 +24,17 @@ T = TypeVar('T')
 
 logger = logging.getLogger(__name__)
 logger.level = logging.INFO
+
+RESOURCE_NAME_MAP = {
+    'employees': 'employee',
+    'categories': 'category',
+    'projects': 'project',
+    'cost_centers': 'cost_center',
+    'expense_custom_fields': 'expense_field',
+    'corporate_cards': 'corporate_card',
+    'dependent_fields': 'dependent_field',
+    'tax_groups': 'tax_group',
+}
 
 
 class Base:
@@ -195,11 +207,23 @@ class Base:
         Sync expense attributes
         :param platform: PlatformConnector object
         """
+        sync_after = None
+        resource_name = RESOURCE_NAME_MAP.get(self.platform_class_name, self.platform_class_name)
+        fyle_sync_timestamp = FyleSyncTimestamp.objects.get(workspace_id=self.workspace_id)
+        fyle_webhook_sync_enabled = FeatureConfig.get_feature_config(self.workspace_id, 'fyle_webhook_sync_enabled')
         platform_class = self.get_platform_class(platform)
-        if self.platform_class_name in ['expense_custom_fields', 'merchants']:
-            platform_class.sync()
+
+        if fyle_webhook_sync_enabled and fyle_sync_timestamp:
+            sync_after = get_resource_timestamp(fyle_sync_timestamp, resource_name)
+            logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
         else:
-            platform_class.sync(sync_after=self.sync_after if self.sync_after else None)
+            sync_after = self.sync_after if self.sync_after else None
+            logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with full sync mode')
+
+        platform_class.sync(sync_after=sync_after)
+
+        if fyle_webhook_sync_enabled and fyle_sync_timestamp:
+            fyle_sync_timestamp.update_sync_timestamp(self.workspace_id, resource_name)
 
     def sync_destination_attributes(self):
         """
