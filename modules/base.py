@@ -11,6 +11,7 @@ from fyle_accounting_mappings.models import (
     Mapping,
     DestinationAttribute,
     ExpenseAttribute,
+    FyleSyncTimestamp,
     CategoryMapping
 )
 
