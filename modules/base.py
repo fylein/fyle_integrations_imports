@@ -208,21 +208,22 @@ class Base:
         :param platform: PlatformConnector object
         """
         sync_after = None
-        platform_class = self.get_platform_class(platform)
+        resource_name = RESOURCE_NAME_MAP.get(self.platform_class_name, self.platform_class_name)
         fyle_sync_timestamp = FyleSyncTimestamp.objects.get(workspace_id=self.workspace_id)
         fyle_webhook_sync_enabled = FeatureConfig.get_feature_config(self.workspace_id, 'fyle_webhook_sync_enabled')
+        platform_class = self.get_platform_class(platform)
 
         if fyle_webhook_sync_enabled and fyle_sync_timestamp:
-            sync_after = get_resource_timestamp(fyle_sync_timestamp, self.platform_class_name)
-            logger.info(f'Syncing {self.platform_class_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
+            sync_after = get_resource_timestamp(fyle_sync_timestamp, resource_name)
+            logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
         else:
             sync_after = self.sync_after if self.sync_after else None
-            logger.info(f'Syncing {self.platform_class_name} for workspace_id {self.workspace_id} with full sync mode')
+            logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with full sync mode')
 
         platform_class.sync(sync_after=sync_after)
 
         if fyle_webhook_sync_enabled and fyle_sync_timestamp:
-            fyle_sync_timestamp.update_sync_timestamp(self.workspace_id, self.platform_class_name)
+            fyle_sync_timestamp.update_sync_timestamp(self.workspace_id, resource_name)
 
     def sync_destination_attributes(self):
         """
