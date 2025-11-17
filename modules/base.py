@@ -15,7 +15,7 @@ from fyle_accounting_mappings.models import (
 )
 
 from apps.workspaces.helpers import get_app_name
-from apps.workspaces.models import FyleCredential
+from apps.workspaces.models import FeatureConfig, FyleCredential
 from fyle_integrations_imports.models import ImportLog
 from apps.mappings.exceptions import handle_import_exceptions_v2
 
@@ -210,9 +210,11 @@ class Base:
         try:
             sync_after = None
             resource_name = self.platform_class_name
+            fyle_sync_timestamp = FyleSyncTimestamp.objects.get(workspace_id=self.workspace_id)
+            fyle_webhook_sync_enabled = FeatureConfig.get_feature_config(self.workspace_id, 'fyle_webhook_sync_enabled')
             
-            if self.fyle_webhook_sync_enabled and self.fyle_sync_timestamp:
-                sync_after = get_resource_timestamp(self.fyle_sync_timestamp, resource_name)
+            if fyle_webhook_sync_enabled and fyle_sync_timestamp:
+                sync_after = get_resource_timestamp(fyle_sync_timestamp, resource_name)
                 logger.debug(f'Syncing {resource_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
             else:
                 sync_after = self.sync_after if self.sync_after else None
@@ -220,8 +222,8 @@ class Base:
             
             platform_class.sync(sync_after=sync_after)
             
-            if self.fyle_webhook_sync_enabled and self.fyle_sync_timestamp:
-                self.fyle_sync_timestamp.update_sync_timestamp(self.workspace_id, resource_name)
+            if fyle_webhook_sync_enabled and fyle_sync_timestamp:
+                fyle_sync_timestamp.update_sync_timestamp(self.workspace_id, resource_name)
                     
         except Exception as e:
             logger.exception(f'Error syncing {self.platform_class_name} for workspace_id {self.workspace_id}: {e}')
