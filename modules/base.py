@@ -214,7 +214,7 @@ class Base:
         platform_class = self.get_platform_class(platform)
 
         if fyle_webhook_sync_enabled and fyle_sync_timestamp:
-            sync_after = get_resource_timestamp(fyle_sync_timestamp, resource_name)
+            sync_after = import_string('fyle_integrations_imports.tasks.get_resource_timestamp')(fyle_sync_timestamp, resource_name)
             logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
         else:
             sync_after = self.sync_after if self.sync_after else None
