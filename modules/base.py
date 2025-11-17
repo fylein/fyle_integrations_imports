@@ -7,6 +7,7 @@ from django.db.models.functions import Lower
 from django.utils.module_loading import import_string
 
 from fyle_integrations_platform_connector import PlatformConnector
+from fyle_integrations_imports.helpers import get_resource_timestamp
 from fyle_accounting_mappings.models import (
     Mapping,
     DestinationAttribute,

@@ -11,7 +11,6 @@ from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute,
     CategoryMapping,
-    FyleSyncTimestamp,
     Mapping
 )
 
@@ -210,13 +209,3 @@ def process_batch(platform: PlatformConnector, workspace_id: int, expense_attrib
             platform.categories.post_bulk(fyle_payload)
         except Exception as e:
             logger.error(f"Failed to post items batch in workspace_id {workspace_id}. Payload: {fyle_payload}. Error: {str(e)}")
-
-
-def get_resource_timestamp(fyle_sync_timestamp: FyleSyncTimestamp, resource_name: str) -> datetime:
-    """
-    Get timestamp for a particular resource from FyleSyncTimestamp
-    :param fyle_sync_timestamp: FyleSyncTimestamp object
-    :param resource_name: Resource name (e.g., 'employees', 'categories', etc.)
-    :return: timestamp or None
-    """
-    return getattr(fyle_sync_timestamp, f'{resource_name}_synced_at', None)
