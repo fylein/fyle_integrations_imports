@@ -92,10 +92,9 @@ class Merchant(Base):
     ):
         """
         Construct Payload and Import to fyle in Batches
-        Supports both VENDOR and OTHER_NAME attribute types
         """
         filters = self.construct_attributes_filter(self.destination_field, is_auto_sync_enabled=self.is_auto_sync_enabled)
-        
+
         destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
         # If there are no destination attributes, mark the import as complete
