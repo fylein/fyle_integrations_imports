@@ -94,22 +94,9 @@ class Merchant(Base):
         Construct Payload and Import to fyle in Batches
         Supports both VENDOR and OTHER_NAME attribute types
         """
-        # Check if destination_field is a list of attribute types
-        if isinstance(self.destination_field, list):
-            attribute_types = self.destination_field
-        else:
-            attribute_types = [self.destination_field]
+        filters = self.construct_attributes_filter(self.destination_field, is_auto_sync_enabled=self.is_auto_sync_enabled)
         
-        # Build filter for multiple attribute types
-        base_filters = {
-            'workspace_id': self.workspace_id,
-            'attribute_type__in': attribute_types
-        }
-        
-        if self.is_auto_sync_enabled:
-            base_filters['active'] = True
-        
-        destination_attributes_count = DestinationAttribute.objects.filter(**base_filters).count()
+        destination_attributes_count = DestinationAttribute.objects.filter(**filters).count()
 
         # If there are no destination attributes, mark the import as complete
         if destination_attributes_count == 0:
@@ -124,7 +111,7 @@ class Merchant(Base):
             import_log.total_batches_count = 1
             import_log.save()
 
-        destination_attributes = DestinationAttribute.objects.filter(**base_filters)
+        destination_attributes = DestinationAttribute.objects.filter(**filters)
         destination_attributes_without_duplicates = self.remove_duplicate_attributes(destination_attributes)
         platform_class = self.get_platform_class(platform)
 

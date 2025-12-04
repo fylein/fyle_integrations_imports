@@ -113,14 +113,19 @@ class Base:
     def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = [], is_auto_sync_enabled: bool = False):
         """
         Construct the attributes filter
-        :param attribute_type: attribute type
+        :param attribute_type: attribute type (can be string or list of strings)
         :param paginated_destination_attribute_values: paginated destination attribute values
         :return: dict
         """
         filters = {
-            'attribute_type': attribute_type,
             'workspace_id': self.workspace_id
         }
+        
+        # Support both single attribute_type and list of attribute_types
+        if isinstance(attribute_type, list):
+            filters['attribute_type__in'] = attribute_type
+        else:
+            filters['attribute_type'] = attribute_type
 
         if (not self.sync_after and is_destination_type) or (not is_auto_sync_enabled):
             filters['active'] = True
