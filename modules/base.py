@@ -45,7 +45,7 @@ class Base:
             self,
             workspace_id: int,
             source_field: str,
-            destination_field: str,
+            destination_field: str | list[str],
             platform_class_name: str,
             sync_after:datetime,
             sdk_connection: Type[T],
@@ -110,7 +110,7 @@ class Base:
             return "{}: {}".format(code, value)
         return value
 
-    def construct_attributes_filter(self, attribute_type: str, is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = [], is_auto_sync_enabled: bool = False):
+    def construct_attributes_filter(self, attribute_type: str | list[str], is_destination_type: bool = True, paginated_destination_attribute_values: List[str] = [], is_auto_sync_enabled: bool = False):
         """
         Construct the attributes filter
         :param attribute_type: attribute type (can be string or list of strings)
