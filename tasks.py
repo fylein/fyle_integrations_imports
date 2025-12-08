@@ -43,7 +43,7 @@ SOURCE_FIELD_CLASS_MAP = {
 # TODO: When we need to assign multiple type to credentials we can use this Union[type1, type2, ...]
 def trigger_import_via_schedule(
         workspace_id: int,
-        destination_field: str,
+        destination_field: str | list[str],
         source_field: str,
         sdk_connection_string: str,
         credentials: Type[models.Model],

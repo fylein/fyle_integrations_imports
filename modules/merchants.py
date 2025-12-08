@@ -26,7 +26,7 @@ class Merchant(Base):
     def __init__(
         self,
         workspace_id: int,
-        destination_field: str,
+        destination_field: str | list[str],
         sync_after: datetime,
         sdk_connection: Type[T],
         destination_sync_methods: List[str],
