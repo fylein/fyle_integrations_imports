@@ -8,6 +8,7 @@ from django.db.models import F
 from django.utils.module_loading import import_string
 
 from fyle_integrations_platform_connector import PlatformConnector
+from fyle.platform.exceptions import InvalidTokenError
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
     ExpenseAttribute,
@@ -128,70 +129,76 @@ def disable_items(workspace_id: int, is_import_enabled: bool = True):
     :param workspace_id: Workspace Id
     :param is_enabled: Boolean indicating if items should be enabled or disabled
     """
-    filters = {}
-    expense_attribute_filters = {}
-    destination_id_f_path = ''
+    try:
+        filters = {}
+        expense_attribute_filters = {}
+        destination_id_f_path = ''
 
-    app_name = import_string('apps.workspaces.helpers.get_app_name')()
+        app_name = import_string('apps.workspaces.helpers.get_app_name')()
 
-    if app_name == 'NETSUITE':
-        filters = {
-            'destination_account__isnull': False
-        }
+        if app_name == 'NETSUITE':
+            filters = {
+                'destination_account__isnull': False
+            }
 
-    elif app_name in ['QUICKBOOKS', 'QBD_CONNECTOR']:
-        filters = {
-            'mapping__source_type': 'CATEGORY',
-            'mapping__isnull': False,
-        }
+        elif app_name in ['QUICKBOOKS', 'QBD_CONNECTOR']:
+            filters = {
+                'mapping__source_type': 'CATEGORY',
+                'mapping__isnull': False,
+            }
 
-    if is_import_enabled:
-        filters['active'] = False
+        if is_import_enabled:
+            filters['active'] = False
 
-    destination_attribute_ids = DestinationAttribute.objects.filter(
-        **filters,
-        workspace_id=workspace_id,
-        attribute_type='ACCOUNT',
-        display_name='Item',
-    ).values_list('id', flat=True)
-
-    fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
-    platform = PlatformConnector(fyle_credentials)
-
-    offset = 0
-    batch_size = 200
-
-    if app_name == 'NETSUITE':
-        destination_id_f_path = 'categorymapping__destination_account__id'
-        expense_attribute_filters = {
-            'categorymapping__destination_account__id__in': destination_attribute_ids
-        }
-
-    elif app_name in ['QUICKBOOKS', 'QBD_CONNECTOR']:
-        destination_id_f_path = 'mapping__destination__destination_id'
-        expense_attribute_filters = {
-            'mapping__destination_id__in': destination_attribute_ids
-        }
-
-    while True:
-        exepense_attributes = ExpenseAttribute.objects.filter(
-            **expense_attribute_filters,
+        destination_attribute_ids = DestinationAttribute.objects.filter(
+            **filters,
             workspace_id=workspace_id,
-            attribute_type='CATEGORY',
-            active=True
-        ).annotate(
-            destination_id=F(destination_id_f_path)
-        ).order_by('id')[offset:offset + batch_size]
+            attribute_type='ACCOUNT',
+            display_name='Item',
+        ).values_list('id', flat=True)
 
-        if not exepense_attributes:
-            break
+        fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
+        platform = PlatformConnector(fyle_credentials)
 
-        process_batch(platform, workspace_id, exepense_attributes)
-        offset += batch_size
+        offset = 0
+        batch_size = 200
 
-    platform.categories.sync()
-    if not is_import_enabled:
-        delete_items_mapping(workspace_id, destination_attribute_ids, app_name)
+        if app_name == 'NETSUITE':
+            destination_id_f_path = 'categorymapping__destination_account__id'
+            expense_attribute_filters = {
+                'categorymapping__destination_account__id__in': destination_attribute_ids
+            }
+
+        elif app_name in ['QUICKBOOKS', 'QBD_CONNECTOR']:
+            destination_id_f_path = 'mapping__destination__destination_id'
+            expense_attribute_filters = {
+                'mapping__destination_id__in': destination_attribute_ids
+            }
+
+        while True:
+            exepense_attributes = ExpenseAttribute.objects.filter(
+                **expense_attribute_filters,
+                workspace_id=workspace_id,
+                attribute_type='CATEGORY',
+                active=True
+            ).annotate(
+                destination_id=F(destination_id_f_path)
+            ).order_by('id')[offset:offset + batch_size]
+
+            if not exepense_attributes:
+                break
+
+            process_batch(platform, workspace_id, exepense_attributes)
+            offset += batch_size
+
+        platform.categories.sync()
+        if not is_import_enabled:
+            delete_items_mapping(workspace_id, destination_attribute_ids, app_name)
+    except InvalidTokenError:
+        logger.info("Invalid Token for Fyle in workspace_id: %s", workspace_id)
+
+    except Exception as e:
+        logger.exception("Error disabling items for workspace_id: %s | Error: %s", workspace_id, str(e))
 
 
 def process_batch(platform: PlatformConnector, workspace_id: int, expense_attributes_batch: list) -> None:
