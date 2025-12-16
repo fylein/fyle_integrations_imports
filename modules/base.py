@@ -212,27 +212,30 @@ class Base:
         Sync expense attributes
         :param platform: PlatformConnector object
         """
-        platform_class = self.get_platform_class(platform)
-        if self.platform_class_name == 'merchants':
-            platform.merchants.sync()
-            return
+        try:
+            platform_class = self.get_platform_class(platform)
+            if self.platform_class_name == 'merchants':
+                platform.merchants.sync()
+                return
 
-        sync_after = None
-        resource_name = RESOURCE_NAME_MAP.get(self.platform_class_name, self.platform_class_name)
-        fyle_sync_timestamp = FyleSyncTimestamp.objects.get(workspace_id=self.workspace_id)
-        fyle_webhook_sync_enabled = FeatureConfig.get_feature_config(self.workspace_id, 'fyle_webhook_sync_enabled')
+            sync_after = None
+            resource_name = RESOURCE_NAME_MAP.get(self.platform_class_name, self.platform_class_name)
+            fyle_sync_timestamp = FyleSyncTimestamp.objects.get(workspace_id=self.workspace_id)
+            fyle_webhook_sync_enabled = FeatureConfig.get_feature_config(self.workspace_id, 'fyle_webhook_sync_enabled')
 
-        if fyle_webhook_sync_enabled and fyle_sync_timestamp:
-            sync_after = import_string('fyle_integrations_imports.tasks.get_resource_timestamp')(fyle_sync_timestamp, resource_name)
-            logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
-        else:
-            sync_after = self.sync_after if self.sync_after else None
-            logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with full sync mode')
+            if fyle_webhook_sync_enabled and fyle_sync_timestamp:
+                sync_after = import_string('fyle_integrations_imports.tasks.get_resource_timestamp')(fyle_sync_timestamp, resource_name)
+                logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with webhook mode | sync_after: {sync_after}')
+            else:
+                sync_after = self.sync_after if self.sync_after else None
+                logger.info(f'Syncing {resource_name} for workspace_id {self.workspace_id} with full sync mode')
 
-        platform_class.sync(sync_after=sync_after)
+            platform_class.sync(sync_after=sync_after)
 
-        if fyle_webhook_sync_enabled and fyle_sync_timestamp:
-            fyle_sync_timestamp.update_sync_timestamp(self.workspace_id, resource_name)
+            if fyle_webhook_sync_enabled and fyle_sync_timestamp:
+                fyle_sync_timestamp.update_sync_timestamp(self.workspace_id, resource_name)
+        except Exception as e:
+            logger.info(f'Error syncing expense attributes for workspace_id {self.workspace_id}: {e}')
 
     def sync_destination_attributes(self):
         """
