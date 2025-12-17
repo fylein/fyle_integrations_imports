@@ -8,6 +8,7 @@ from django.db.models import Q, Count
 from django.db.models.functions import Lower
 from django.utils.module_loading import import_string
 
+from fyle.platform.exceptions import InvalidTokenError
 from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import (
     DestinationAttribute,
@@ -266,86 +267,92 @@ def disable_categories(workspace_id: int, attributes_to_disable: Dict, is_import
         }
     }
     """
-    if not is_import_to_fyle_enabled or len(attributes_to_disable) == 0:
-        logger.info("Skipping disabling categories in Fyle | WORKSPACE_ID: %s", workspace_id)
-        return
+    try:
+        if not is_import_to_fyle_enabled or len(attributes_to_disable) == 0:
+            logger.info("Skipping disabling categories in Fyle | WORKSPACE_ID: %s", workspace_id)
+            return
 
-    app_name = import_string('apps.workspaces.helpers.get_app_name')()
+        app_name = import_string('apps.workspaces.helpers.get_app_name')()
 
-    fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
-    platform = PlatformConnector(fyle_credentials=fyle_credentials)
+        fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
+        platform = PlatformConnector(fyle_credentials=fyle_credentials)
 
-    configuration_model_path = None
+        configuration_model_path = None
 
-    if app_name == 'Sage File Export':
-        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')(workspace_id=workspace_id)
-    else:
-        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
-    Configuration = import_string(configuration_model_path)
-
-    use_code_in_naming = False
-    columns = Configuration._meta.get_fields()
-    if 'import_code_fields' in [field.name for field in columns]:
-        use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=['ACCOUNT']).exists()
-
-    category_values = []
-    for category_map in attributes_to_disable.values():
-        if not use_code_in_naming and category_map['value'] == category_map['updated_value']:
-            continue
-        elif use_code_in_naming and (category_map['value'] == category_map['updated_value'] and category_map['code'] == category_map['updated_code']):
-            continue
-
-        category_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=category_map['value'], code=category_map['code'])
-        category_values.append(category_name)
-
-    if not use_code_in_naming:
-        unique_values = DestinationAttribute.objects.filter(
-            workspace_id=workspace_id,
-            attribute_type=attribute_type,
-            value__in=category_values,
-        ).values('value').annotate(
-            value_count=Count('id')
-        ).filter(value_count=1)
-
-        category_values = [item['value'] for item in unique_values]
-
-    filters = {
-        'workspace_id': workspace_id,
-        'attribute_type': 'CATEGORY',
-        'value__in': category_values,
-        'active': True
-    }
-
-    expense_attribute_value_map = {}
-    for destination_id, v in attributes_to_disable.items():
-        category_name = v['value']
-        category_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=v['value'], code=v['code'])
-        expense_attribute_value_map[category_name] = destination_id
-
-    bulk_payload = []
-
-    expense_attributes = ExpenseAttribute.objects.filter(**filters)
-
-    for expense_attribute in expense_attributes:
-        code = expense_attribute_value_map.get(expense_attribute.value, None)
-        if code:
-            payload = {
-                'name': expense_attribute.value,
-                'code': code if not app_name in ['QBD_CONNECTOR', 'SAGE300'] else None,
-                'is_enabled': False,
-                'id': expense_attribute.source_id
-            }
-            bulk_payload.append(payload)
+        if app_name == 'Sage File Export':
+            configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')(workspace_id=workspace_id)
         else:
-            logger.error(f"Category with value {expense_attribute.value} not found | WORKSPACE_ID: {workspace_id}")
+            configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
+        Configuration = import_string(configuration_model_path)
 
-    if bulk_payload:
-        logger.info(f"Disabling Category in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
-        platform.categories.post_bulk(bulk_payload)
-    else:
-        logger.info(f"No Category to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
+        use_code_in_naming = False
+        columns = Configuration._meta.get_fields()
+        if 'import_code_fields' in [field.name for field in columns]:
+            use_code_in_naming = Configuration.objects.filter(workspace_id=workspace_id, import_code_fields__contains=['ACCOUNT']).exists()
 
-    return bulk_payload
+        category_values = []
+        for category_map in attributes_to_disable.values():
+            if not use_code_in_naming and category_map['value'] == category_map['updated_value']:
+                continue
+            elif use_code_in_naming and (category_map['value'] == category_map['updated_value'] and category_map['code'] == category_map['updated_code']):
+                continue
+
+            category_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=category_map['value'], code=category_map['code'])
+            category_values.append(category_name)
+
+        if not use_code_in_naming:
+            unique_values = DestinationAttribute.objects.filter(
+                workspace_id=workspace_id,
+                attribute_type=attribute_type,
+                value__in=category_values,
+            ).values('value').annotate(
+                value_count=Count('id')
+            ).filter(value_count=1)
+
+            category_values = [item['value'] for item in unique_values]
+
+        filters = {
+            'workspace_id': workspace_id,
+            'attribute_type': 'CATEGORY',
+            'value__in': category_values,
+            'active': True
+        }
+
+        expense_attribute_value_map = {}
+        for destination_id, v in attributes_to_disable.items():
+            category_name = v['value']
+            category_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=v['value'], code=v['code'])
+            expense_attribute_value_map[category_name] = destination_id
+
+        bulk_payload = []
+
+        expense_attributes = ExpenseAttribute.objects.filter(**filters)
+
+        for expense_attribute in expense_attributes:
+            code = expense_attribute_value_map.get(expense_attribute.value, None)
+            if code:
+                payload = {
+                    'name': expense_attribute.value,
+                    'code': code if not app_name in ['QBD_CONNECTOR', 'SAGE300'] else None,
+                    'is_enabled': False,
+                    'id': expense_attribute.source_id
+                }
+                bulk_payload.append(payload)
+            else:
+                logger.error(f"Category with value {expense_attribute.value} not found | WORKSPACE_ID: {workspace_id}")
+
+        if bulk_payload:
+            logger.info(f"Disabling Category in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
+            platform.categories.post_bulk(bulk_payload)
+        else:
+            logger.info(f"No Category to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
+
+        return bulk_payload
+    except InvalidTokenError:
+        logger.info("Invalid Token for Fyle in workspace_id: %s", workspace_id)
+
+    except Exception as e:
+        logger.info("Error disabling categories for workspace_id: %s | Error: %s", workspace_id, str(e))
 
 
 def disable_system_categories_in_fyle(workspace_id: int) -> None:
