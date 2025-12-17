@@ -5,6 +5,7 @@ from typing import Dict, List, Type, TypeVar
 from django.utils.module_loading import import_string
 from django.db.models import Count
 
+from fyle.platform.exceptions import InvalidTokenError
 from fyle_integrations_platform_connector import PlatformConnector
 from fyle_accounting_mappings.models import ExpenseAttribute, DestinationAttribute
 
@@ -173,63 +174,69 @@ def disable_merchants(workspace_id: int, attributes_to_disable: Dict, is_import_
         }
     }
     """
-    if not is_import_to_fyle_enabled or len(attributes_to_disable) == 0:
-        logger.info("Skipping disabling merchants in Fyle | WORKSPACE_ID: %s", workspace_id)
-        return
+    try:
+        if not is_import_to_fyle_enabled or len(attributes_to_disable) == 0:
+            logger.info("Skipping disabling merchants in Fyle | WORKSPACE_ID: %s", workspace_id)
+            return
 
-    app_name = import_string('apps.workspaces.helpers.get_app_name')()
+        app_name = import_string('apps.workspaces.helpers.get_app_name')()
 
-    fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
-    platform = PlatformConnector(fyle_credentials=fyle_credentials)
+        fyle_credentials = FyleCredential.objects.get(workspace_id=workspace_id)
+        platform = PlatformConnector(fyle_credentials=fyle_credentials)
 
-    configuration_model_path = None
+        configuration_model_path = None
 
-    if app_name == 'Sage File Export':
-        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')(workspace_id=workspace_id)
-    else:
-        configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
-    Configuration = import_string(configuration_model_path)
+        if app_name == 'Sage File Export':
+            configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')(workspace_id=workspace_id)
+        else:
+            configuration_model_path = import_string('apps.workspaces.helpers.get_import_configuration_model_path')()
+        Configuration = import_string(configuration_model_path)
 
-    use_code_in_naming = False
-    columns = Configuration._meta.get_fields()
-    if 'import_code_fields' in [field.name for field in columns]:
-        use_code_in_naming = Configuration.objects.filter(workspace_id = workspace_id, import_code_fields__contains=['VENDOR']).exists()
+        use_code_in_naming = False
+        columns = Configuration._meta.get_fields()
+        if 'import_code_fields' in [field.name for field in columns]:
+            use_code_in_naming = Configuration.objects.filter(workspace_id = workspace_id, import_code_fields__contains=['VENDOR']).exists()
 
-    merchant_values = []
-    for merchant_map in attributes_to_disable.values():
-        if not use_code_in_naming and merchant_map['value'] == merchant_map['updated_value']:
-            continue
-        elif use_code_in_naming and (merchant_map['value'] == merchant_map['updated_value'] and merchant_map['code'] == merchant_map['updated_code']):
-            continue
+        merchant_values = []
+        for merchant_map in attributes_to_disable.values():
+            if not use_code_in_naming and merchant_map['value'] == merchant_map['updated_value']:
+                continue
+            elif use_code_in_naming and (merchant_map['value'] == merchant_map['updated_value'] and merchant_map['code'] == merchant_map['updated_code']):
+                continue
 
-        merchant_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=merchant_map['value'], code=merchant_map['code'])
-        merchant_values.append(merchant_name)
+            merchant_name = import_string('apps.mappings.helpers.prepend_code_to_name')(prepend_code_in_name=use_code_in_naming, value=merchant_map['value'], code=merchant_map['code'])
+            merchant_values.append(merchant_name)
 
-    if not use_code_in_naming:
-        unique_values = DestinationAttribute.objects.filter(
-            workspace_id=workspace_id,
-            attribute_type=attribute_type,
-            value__in=merchant_values,
-        ).values('value').annotate(
-            value_count=Count('id')
-        ).filter(value_count=1)
+        if not use_code_in_naming:
+            unique_values = DestinationAttribute.objects.filter(
+                workspace_id=workspace_id,
+                attribute_type=attribute_type,
+                value__in=merchant_values,
+            ).values('value').annotate(
+                value_count=Count('id')
+            ).filter(value_count=1)
 
-        merchant_values = [item['value'] for item in unique_values]
+            merchant_values = [item['value'] for item in unique_values]
 
-    filters = {
-        'workspace_id': workspace_id,
-        'attribute_type': 'MERCHANT',
-        'value__in': merchant_values,
-        'active': True
-    }
+        filters = {
+            'workspace_id': workspace_id,
+            'attribute_type': 'MERCHANT',
+            'value__in': merchant_values,
+            'active': True
+        }
 
-    bulk_payload = ExpenseAttribute.objects.filter(**filters).values_list('value', flat=True)
+        bulk_payload = ExpenseAttribute.objects.filter(**filters).values_list('value', flat=True)
 
-    if bulk_payload:
-        logger.info(f"Disabling Merchants in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
-        platform.merchants.post(bulk_payload, delete_merchants=True)
-        ExpenseAttribute.objects.filter(**filters).update(active=False, updated_at=datetime.now())
-    else:
-        logger.info(f"No Merchants to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
+        if bulk_payload:
+            logger.info(f"Disabling Merchants in Fyle | WORKSPACE_ID: {workspace_id} | COUNT: {len(bulk_payload)}")
+            platform.merchants.post(bulk_payload, delete_merchants=True)
+            ExpenseAttribute.objects.filter(**filters).update(active=False, updated_at=datetime.now())
+        else:
+            logger.info(f"No Merchants to Disable in Fyle | WORKSPACE_ID: {workspace_id}")
 
-    return bulk_payload
+        return bulk_payload
+    except InvalidTokenError:
+        logger.info("Invalid Token for Fyle in workspace_id: %s", workspace_id)
+
+    except Exception as e:
+        logger.info("Error disabling merchants for workspace_id: %s | Error: %s", workspace_id, str(e))
