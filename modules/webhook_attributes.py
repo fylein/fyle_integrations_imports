@@ -166,7 +166,8 @@ class WebhookAttributeProcessor:
             
         attribute_type = field_name.upper().replace(' ', '_')
         options = data.get('options', [])
-        options = clean_options(options)
+        if options:
+            options = clean_options(options)
 
         existing_attributes = ExpenseAttribute.objects.filter(
             workspace_id=self.workspace_id,
