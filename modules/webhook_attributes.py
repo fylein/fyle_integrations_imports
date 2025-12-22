@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 from django.core.cache import cache
-from tasks import clean_options
+from fyle_integrations_imports.tasks import clean_options
 from django.utils.module_loading import import_string
 from fyle_accounting_mappings.models import ExpenseAttribute
 from fyle_integrations_imports.models import ImportLog
