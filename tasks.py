@@ -241,7 +241,7 @@ def clean_options(options: List[str]) -> List[str]:
     seen = set()
 
     for option in options:
-        option = re.sub(r'\\{2,}', r'\\', option)
+        option = re.sub(r'\\+', '', option)
         option = option.replace("\\'", "'")
         if option not in seen:
             cleaned.append(option)
