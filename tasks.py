@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Type, List
 from datetime import timedelta
 from datetime import datetime
@@ -228,3 +229,22 @@ def get_resource_timestamp(fyle_sync_timestamp: FyleSyncTimestamp, resource_name
     :return: timestamp or None
     """
     return getattr(fyle_sync_timestamp, f'{resource_name}_synced_at', None)
+
+
+def clean_options(options: List[str]) -> List[str]:
+    """
+    Clean options
+    :param options: List of options
+    :return: List of cleaned options
+    """
+    cleaned = []
+    seen = set()
+
+    for option in options:
+        option = re.sub(r'\\{2,}', r'\\', option)
+        option = option.replace("\\'", "'")
+        if option not in seen:
+            cleaned.append(option)
+            seen.add(option)
+
+    return cleaned
