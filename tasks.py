@@ -239,12 +239,28 @@ def clean_options(options: List[str]) -> List[str]:
     """
     cleaned = []
     seen = set()
-
+    rejoined = []
+    buffer = None
     for option in options:
+        if buffer is not None:
+            buffer += ', ' + option
+            if option.endswith('"'):
+                rejoined.append(buffer[1:-1])
+                buffer = None
+        elif option.startswith('"') and not option.endswith('"'):
+            buffer = option
+        elif option.startswith('"') and option.endswith('"') and len(option) > 1:
+            rejoined.append(option[1:-1])
+        else:
+            rejoined.append(option)
+
+    if buffer is not None:
+        rejoined.append(buffer)
+
+    for option in rejoined:
         option = re.sub(r'\\+', '', option)
         option = option.replace("\\'", "'")
         if option not in seen:
             cleaned.append(option)
             seen.add(option)
-
     return cleaned
