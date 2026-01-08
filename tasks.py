@@ -56,7 +56,8 @@ def trigger_import_via_schedule(
         is_custom: bool = False,
         use_mapping_table: bool = True,
         prepend_code_to_name: bool = False,
-        import_without_destination_id: bool = False
+        import_without_destination_id: bool = False,
+        project_billable_field_detail_key: str = None
 ):
     """
     Trigger import via schedule
@@ -68,6 +69,8 @@ def trigger_import_via_schedule(
     import_log = ImportLog.objects.filter(workspace_id=workspace_id, attribute_type=source_field).first()
     sync_after = import_log.last_successful_run_at if import_log else None
     sdk_connection = None
+    app_name = import_string('apps.workspaces.helpers.get_app_name')()
+
     try:
         if sdk_connection_string:
             sdk_connection = import_string(sdk_connection_string)(credentials, workspace_id)
@@ -95,6 +98,9 @@ def trigger_import_via_schedule(
 
     if source_field in ['PROJECT', 'CATEGORY']:
         args['import_without_destination_id'] = import_without_destination_id
+
+    if app_name == 'SAGE_INTACCT' and source_field == 'PROJECT' and destination_field == 'PROJECT':
+        args['project_billable_field_detail_key'] = project_billable_field_detail_key
 
     if source_field == 'CATEGORY':
         args['is_3d_mapping'] = is_3d_mapping
