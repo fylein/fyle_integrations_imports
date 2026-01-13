@@ -19,7 +19,10 @@ ATTRIBUTE_FIELD_MAPPING = {
     },
     FyleAttributeTypeEnum.PROJECT: {
         'active_field': 'is_enabled',
-        'display_name': 'Project'
+        'display_name': 'Project',
+        'detail_fields': {
+            'default_billable': 'default_billable'
+        }
     },
     FyleAttributeTypeEnum.COST_CENTER: {
         'active_field': 'is_enabled',
