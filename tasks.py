@@ -99,7 +99,7 @@ def trigger_import_via_schedule(
     if source_field in ['PROJECT', 'CATEGORY']:
         args['import_without_destination_id'] = import_without_destination_id
 
-    if app_name == 'SAGE_INTACCT' and source_field == 'PROJECT' and destination_field == 'PROJECT':
+    if app_name == 'INTACCT' and source_field == 'PROJECT' and destination_field == 'PROJECT':
         args['project_billable_field_detail_key'] = project_billable_field_detail_key
 
     if source_field == 'CATEGORY':

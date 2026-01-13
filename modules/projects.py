@@ -80,12 +80,14 @@ class Project(Base):
                     attribute.destination_id
                 ),
                 'is_enabled': True if attribute.active is None else attribute.active,
-                **({'default_billable': attribute.detail.get(self.project_billable_field_detail_key)} if self.project_billable_field_detail_key else {})  # this will post for only new projects or when active flag changes.
             }
 
             # Create a new project if it does not exist in Fyle and the destination_attributes is active
             if attribute.value.lower() not in existing_fyle_attributes_map and attribute.active:
+                if self.project_billable_field_detail_key and attribute.detail:
+                    project['default_billable'] = attribute.detail.get(self.project_billable_field_detail_key)
                 payload.append(project)
+
             # Disable the existing project in Fyle if auto-sync status is allowed and the destination_attributes is inactive
             elif self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
                 project['id'] = existing_fyle_attributes_map[attribute.value.lower()]
@@ -115,18 +117,19 @@ class Project(Base):
             destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, destination_attribute_filter)
 
             for paginated_destination_attributes, _ in destination_attributes_generator:
-                paginated_destination_attribute_values = [attribute.value for attribute in paginated_destination_attributes]
+                paginated_destination_attribute_values = [attribute.value.lower() for attribute in paginated_destination_attributes]
 
                 existing_expense_attributes_filter = {
                     'workspace_id': self.workspace_id,
                     'attribute_type': 'PROJECT',
                     'active': True,
-                    'value__lower_in': paginated_destination_attribute_values
+                    'value_lower__in': paginated_destination_attribute_values
                 }
 
-                existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(**existing_expense_attributes_filter).values('value', 'source_id')
+                existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(**existing_expense_attributes_filter).values('value', 'source_id', 'detail')
 
                 existing_expense_attributes_map = {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
+                existing_expense_attributes_detail_map = {attribute['value'].lower(): attribute.get('detail') or {} for attribute in existing_expense_attributes_values}
 
                 payload = []
 
@@ -134,12 +137,24 @@ class Project(Base):
                     if destination_attribute.value.lower() not in existing_expense_attributes_map:
                         continue
 
-                    project = {
-                        'id': existing_expense_attributes_map[destination_attribute.value.lower()],
-                        'default_billable': destination_attribute.detail.get(self.project_billable_field_detail_key)
-                    }
+                    default_billable_in_platform = existing_expense_attributes_detail_map.get(destination_attribute.value.lower(), {}).get('default_billable')
 
-                    payload.append(project)
+                    # two cases for updating the project billable in Platform
+                    # case 1: when default_billable_in_platform is None
+                    # case 2: when default_billable_in_platform is False and destination_attribute.detail.get(self.project_billable_field_detail_key) is True
+                    if (
+                        default_billable_in_platform is None 
+                        or (
+                        default_billable_in_platform != destination_attribute.detail.get(self.project_billable_field_detail_key)
+                        and default_billable_in_platform == False
+                    )):
+                        project = {
+                            'id': existing_expense_attributes_map[destination_attribute.value.lower()],
+                            'name': destination_attribute.value,
+                            'default_billable': destination_attribute.detail.get(self.project_billable_field_detail_key)
+                        }
+
+                        payload.append(project)
 
                 if payload:
                     platform.projects.post_bulk(payload)
