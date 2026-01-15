@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Type, TypeVar
 
+from django.db.models.functions import Lower
 from django.utils.module_loading import import_string
 from django.db.models import Count
 
@@ -32,9 +33,12 @@ class Project(Base):
         destination_sync_methods: List[str],
         is_auto_sync_enabled: bool,
         import_without_destination_id: bool = False,
-        prepend_code_to_name: bool = False
+        prepend_code_to_name: bool = False,
+        project_billable_field_detail_key: str = None
     ):
         self.is_auto_sync_enabled = is_auto_sync_enabled
+        self.project_billable_field_detail_key = project_billable_field_detail_key
+
         super().__init__(
             workspace_id=workspace_id,
             source_field='PROJECT',
@@ -75,18 +79,93 @@ class Project(Base):
                     attribute.value,
                     attribute.destination_id
                 ),
-                'is_enabled': True if attribute.active is None else attribute.active
+                'is_enabled': True if attribute.active is None else attribute.active,
             }
 
             # Create a new project if it does not exist in Fyle and the destination_attributes is active
             if attribute.value.lower() not in existing_fyle_attributes_map and attribute.active:
+                if self.project_billable_field_detail_key and attribute.detail:
+                    project['default_billable'] = attribute.detail.get(self.project_billable_field_detail_key)
                 payload.append(project)
+
             # Disable the existing project in Fyle if auto-sync status is allowed and the destination_attributes is inactive
             elif self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
                 project['id'] = existing_fyle_attributes_map[attribute.value.lower()]
                 payload.append(project)
 
         return payload
+
+    def sync_project_billable_to_fyle(self, destination_attribute_pks: list[int] = []):
+        """
+        Sync project billable to Fyle
+        :param destination_attribute_pks: Destination attribute Primary Keys
+        """
+        try:
+            fyle_credentials = FyleCredential.objects.get(workspace_id=self.workspace_id)
+            platform = PlatformConnector(fyle_credentials=fyle_credentials)
+
+            destination_attribute_filter = {
+                'workspace_id': self.workspace_id,
+                'attribute_type': 'PROJECT'
+            }
+
+            if destination_attribute_pks:
+                destination_attribute_filter['id__in'] = destination_attribute_pks
+
+            destination_attributes_count = DestinationAttribute.objects.filter(**destination_attribute_filter).count()
+
+            destination_attributes_generator = self.get_destination_attributes_generator(destination_attributes_count, destination_attribute_filter)
+
+            for paginated_destination_attributes, _ in destination_attributes_generator:
+                paginated_destination_attribute_values = [attribute.value.lower() for attribute in paginated_destination_attributes]
+
+                existing_expense_attributes_filter = {
+                    'workspace_id': self.workspace_id,
+                    'attribute_type': 'PROJECT',
+                    'active': True,
+                    'value_lower__in': paginated_destination_attribute_values
+                }
+
+                existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(**existing_expense_attributes_filter).values('value', 'source_id', 'detail')
+
+                existing_expense_attributes_map = {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
+                existing_expense_attributes_detail_map = {attribute['value'].lower(): attribute.get('detail') or {} for attribute in existing_expense_attributes_values}
+
+                payload = []
+
+                for destination_attribute in paginated_destination_attributes:
+                    if destination_attribute.value.lower() not in existing_expense_attributes_map:
+                        continue
+
+                    default_billable_in_platform = existing_expense_attributes_detail_map.get(destination_attribute.value.lower(), {}).get('default_billable')
+
+                    # two cases for updating the project billable in Platform
+                    # case 1: when default_billable_in_platform is None
+                    # case 2: when default_billable_in_platform is False and destination_attribute.detail.get(self.project_billable_field_detail_key) is True
+                    if (
+                        default_billable_in_platform is None 
+                        or (
+                        default_billable_in_platform != destination_attribute.detail.get(self.project_billable_field_detail_key)
+                        and default_billable_in_platform == False
+                    )):
+                        project = {
+                            'id': existing_expense_attributes_map[destination_attribute.value.lower()],
+                            'name': destination_attribute.value,
+                            'default_billable': destination_attribute.detail.get(self.project_billable_field_detail_key)
+                        }
+
+                        payload.append(project)
+
+                if payload:
+                    platform.projects.post_bulk(payload)
+                    logger.info(f"Synced {len(payload)} project billable to Fyle | WORKSPACE_ID: {self.workspace_id}")
+                else:
+                    logger.info(f"No project billable to sync to Fyle | WORKSPACE_ID: {self.workspace_id}")
+
+        except InvalidTokenError:
+            logger.info("Invalid Token for Fyle in workspace_id: %s", self.workspace_id)
+        except Exception as e:
+            logger.info("Error syncing project billable to Fyle for workspace_id: %s | Error: %s", self.workspace_id, str(e))
 
 
 def disable_projects(workspace_id: int, attributes_to_disable: Dict, is_import_to_fyle_enabled: bool = False, attribute_type: str = None, *args, **kwargs):

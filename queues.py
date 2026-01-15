@@ -126,9 +126,9 @@ def chain_import_fields_to_fyle(workspace_id, task_settings: TaskSetting, run_in
                             'is_custom':mapping_setting['is_custom'],
                             'import_without_destination_id':mapping_setting['import_without_destination_id'] if 'import_without_destination_id' in mapping_setting else False,
                             'prepend_code_to_name':mapping_setting['prepend_code_to_name'] if 'prepend_code_to_name' in mapping_setting else False,
+                            'project_billable_field_detail_key':mapping_setting['project_billable_field_detail_key'] if 'project_billable_field_detail_key' in mapping_setting else None,
                             **({'q_options': {'cluster': cluster}} if not run_in_rabbitmq_worker else {})
                         }
-                        
                     )
                 )
 
