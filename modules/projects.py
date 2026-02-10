@@ -84,8 +84,11 @@ class Project(Base):
 
             # Create a new project if it does not exist in Fyle and the destination_attributes is active
             if attribute.value.lower() not in existing_fyle_attributes_map and attribute.active:
-                if self.project_billable_field_detail_key and attribute.detail:
-                    project['default_billable'] = attribute.detail.get(self.project_billable_field_detail_key)
+                if self.project_billable_field_detail_key and attribute.detail and self.project_billable_field_detail_key in attribute.detail:
+                    default_billable_value = attribute.detail.get(self.project_billable_field_detail_key)
+                    # Only add default_billable if it's not None
+                    if default_billable_value is not None:
+                        project['default_billable'] = default_billable_value
                 payload.append(project)
 
             # Disable the existing project in Fyle if auto-sync status is allowed and the destination_attributes is inactive
@@ -139,19 +142,30 @@ class Project(Base):
 
                     default_billable_in_platform = existing_expense_attributes_detail_map.get(destination_attribute.value.lower(), {}).get('default_billable')
 
+                    # Get billable value from destination attribute detail
+                    # Skip if detail is None or doesn't have the billable field key
+                    if not destination_attribute.detail or self.project_billable_field_detail_key not in destination_attribute.detail:
+                        continue
+
+                    default_billable_value = destination_attribute.detail.get(self.project_billable_field_detail_key)
+                    
+                    # Skip if billable value is None (can't sync None value)
+                    if default_billable_value is None:
+                        continue
+
                     # two cases for updating the project billable in Platform
                     # case 1: when default_billable_in_platform is None
                     # case 2: when default_billable_in_platform is False and destination_attribute.detail.get(self.project_billable_field_detail_key) is True
                     if (
                         default_billable_in_platform is None 
                         or (
-                        default_billable_in_platform != destination_attribute.detail.get(self.project_billable_field_detail_key)
+                        default_billable_in_platform != default_billable_value
                         and default_billable_in_platform == False
                     )):
                         project = {
                             'id': existing_expense_attributes_map[destination_attribute.value.lower()],
                             'name': destination_attribute.value,
-                            'default_billable': destination_attribute.detail.get(self.project_billable_field_detail_key)
+                            'default_billable': default_billable_value
                         }
 
                         payload.append(project)
