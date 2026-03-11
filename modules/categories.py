@@ -203,7 +203,7 @@ class Category(Base):
             if attribute.value.lower() not in existing_fyle_attributes_map and attribute.active:
                 payload.append(category)
             # Disable the existing category in Fyle if auto-sync status is allowed and the destination_attributes is inactive
-            elif existing_fyle_attributes_map[attribute.value.lower()] and existing_fyle_attributes_map[attribute.value.lower()]['active'] and self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
+            elif existing_fyle_attributes_map.get(attribute.value.lower()) and existing_fyle_attributes_map[attribute.value.lower()]['active'] and self.is_auto_sync_enabled and not attribute.active:
                 category['id'] = existing_fyle_attributes_map[attribute.value.lower()]['source_id']
                 payload.append(category)
 
