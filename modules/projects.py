@@ -92,8 +92,8 @@ class Project(Base):
                 payload.append(project)
 
             # Disable the existing project in Fyle if auto-sync status is allowed and the destination_attributes is inactive
-            elif self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
-                project['id'] = existing_fyle_attributes_map[attribute.value.lower()]
+            elif existing_fyle_attributes_map.get(attribute.value.lower()) and existing_fyle_attributes_map[attribute.value.lower()]['active'] and self.is_auto_sync_enabled and not attribute.active:
+                project['id'] = existing_fyle_attributes_map[attribute.value.lower()]['source_id']
                 payload.append(project)
 
         return payload

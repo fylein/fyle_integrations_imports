@@ -107,7 +107,7 @@ class CostCenter(Base):
             }
 
             lower_value = attribute.value.lower()
-            existing_source_id = existing_fyle_attributes_map.get(lower_value)
+            existing_source_id = existing_fyle_attributes_map.get(lower_value) and existing_fyle_attributes_map.get(lower_value)['source_id']
             if existing_source_id:
                 cost_center['name'] = case_insensitive_map.get(lower_value, (attribute.value,))[0]
                 cost_center['description'] = 'Cost Center - {0}, Id - {1}'.format(
@@ -128,7 +128,7 @@ class CostCenter(Base):
                 payload.append(cost_center)
 
             # Disable the cost-center if it is not active and exists in Fyle
-            elif self.is_auto_sync_enabled and not attribute.active and existing_source_id:
+            elif existing_fyle_attributes_map.get(lower_value) and existing_fyle_attributes_map[lower_value]['active'] and self.is_auto_sync_enabled and not attribute.active and existing_source_id:
                 cost_center['id'] = existing_source_id
                 payload.append(cost_center)
 

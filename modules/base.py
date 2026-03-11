@@ -331,9 +331,9 @@ class Base:
         """
         filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
         filters.pop('active')
-        existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(**filters).values('value', 'source_id')
+        existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(**filters).values('value', 'source_id', 'active')
         # This is a map of attribute name to attribute source_id
-        return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
+        return {attribute['value'].lower(): {'source_id': attribute['source_id'], 'active': attribute['active']} for attribute in existing_expense_attributes_values}
 
     def post_to_fyle_and_sync(self, fyle_payload: List[object], resource_class, is_last_batch: bool, import_log: ImportLog):
         """
