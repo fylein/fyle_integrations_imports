@@ -174,9 +174,9 @@ class Category(Base):
         :return: Map of attribute value to attribute source_id
         """
         filters = self.construct_attributes_filter(self.source_field, False, paginated_destination_attribute_values)
-        existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(filters).values('value', 'source_id')
+        existing_expense_attributes_values = ExpenseAttribute.objects.annotate(value_lower=Lower('value')).filter(filters).values('value', 'source_id', 'active')
         # This is a map of attribute name to attribute source_id
-        return {attribute['value'].lower(): attribute['source_id'] for attribute in existing_expense_attributes_values}
+        return {attribute['value'].lower(): {'source_id': attribute['source_id'], 'active': attribute['active']} for attribute in existing_expense_attributes_values}
 
     def construct_fyle_payload(
         self,
@@ -203,8 +203,8 @@ class Category(Base):
             if attribute.value.lower() not in existing_fyle_attributes_map and attribute.active:
                 payload.append(category)
             # Disable the existing category in Fyle if auto-sync status is allowed and the destination_attributes is inactive
-            elif self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
-                category['id'] = existing_fyle_attributes_map[attribute.value.lower()]
+            elif existing_fyle_attributes_map[attribute.value.lower()] and existing_fyle_attributes_map[attribute.value.lower()]['active'] and self.is_auto_sync_enabled and not attribute.active and attribute.value.lower() in existing_fyle_attributes_map:
+                category['id'] = existing_fyle_attributes_map[attribute.value.lower()]['source_id']
                 payload.append(category)
 
         return payload
